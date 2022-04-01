@@ -9,7 +9,7 @@ output: pdf_document
 
 The data is a survey conducted by *The Central Bureau of Statistics in 2018. The study participants are 7,500 people representing the population in Israel aged 20 and over. I got the raw data set from Central Bureau of Statistics.*
 
-The data consist of 402 questions in the subject of Social Mobility. In order to give description on the data set I divided the questions to 14 groups:
+The data consist of 402 questions in the subject of Social Mobility. In order to give description on the data set I divided the questions to 12 groups:
 
 1.  [Details about household members]{.underline} - questions about marital status, country of birth, age, sex, etc.
 
@@ -29,4 +29,8 @@ The data consist of 402 questions in the subject of Social Mobility. In order to
 
 9.  [Vacation, contact with family and friends and volunteering -]{.underline} Questions about social life, going out for fun and vacations, satisfaction and confidence in social relationships and contact with family members. In addition, questions about volunteering and contributing to the community.
 
-10. [Trust in government institutions]{.underline} -
+10. [Economic status and income and welfare-]{.underline} Income, economic conduct, perception regarding the economic situation of the survey participant from a young age to the present day.
+
+11.  [Civic involvement -]{.underline} Involvement in political and public life, participant opinion on civic bodies such as the health system, the education system, the Israel Police, etc.
+
+12. [Trust in government institutions]{.underline} - Participant opinion on government institutions such as government, the justice system, and the health system. Does the participant encounter discrimination in various areas of life.
