@@ -64,35 +64,51 @@ y <- sc %>%
     # Employment
     MatzavTaasukaM_C, # מצב תעסוקה
    # contact with family and friends
-     MerutzeKesherMishp, # האם את/ה מרוצה מהקשר שלך עם בני משפחתך?
+    MerutzeKesherMishp, # האם את/ה מרוצה מהקשר שלך עם בני משפחתך?
     YeshChaverim,
     TadirutChaverim,
     # Economic status and income and welfare
     MerutzeChaim, # באופן כללי, האם את/ה מרוצה מחייך?
     MerutzeKalkali, # האם את/ה מרוצה ממצבך הכלכלי?
-   HachnasaKolelet # בחודש שעבר, מה הייתה הכנסת משק הבית ברוטו
+   HachnasaAvodaNeto # בחודש שעבר, מה הייתה הכנסה ברוטו
     ) %>% 
-  # TODO: create new variable from DiraBaalut_C
-  # TODO: להורי את מי שמקבל עוזר מביטוח לאומי
-  filter((HachnasaKolelet != 888888 ) & !is.na(HachnasaKolelet)) %>%
-  mutate(TadirutChaverim = ifelse(YeshChaverim == 2, yes = 0, no = TadirutChaverim),
-         HachnasaKolelet = ifelse(HachnasaKolelet == 11, yes = 0, no = HachnasaKolelet),
+  mutate(TadirutChaverim = ifelse(YeshChaverim %in% c(2, 888888), yes = 5,
+                                  no = TadirutChaverim),
+         HachnasaAvodaNeto = case_when(MatzavTaasukaM_C %in% c(2,3) & is.na(HachnasaAvodaNeto) ~ 0,
+                                       T ~ HachnasaAvodaNeto),
+         HachnasaAvodaNeto = ifelse(HachnasaAvodaNeto == 11, yes = 0,
+                                    no = HachnasaAvodaNeto),
          Mispar_dirot = case_when(DiraBaalut_C == 2 ~ 0,
                                          DiraNosefetBaalut == 2  | 
                                            DiraNosefetBaalut == 888888 |
                                            is.na(DiraNosefetBaalut) ~ 1,
                                          DiraNosefetBaalut == 1 ~ 2
          ),
-         TadirutChaverim = ifelse(is.na(TadirutChaverim), yes = 0, no = TadirutChaverim)) %>% 
+         # הקטגוריה 0 עכשיו תהיה לא למד כלל/לא קיבל אף אחת מהתעודות הרשומות
+         TeudaGvoha = ifelse(TeudaGvoha == 7, yes = 0,
+                             no = TeudaGvoha)
+         ) %>% 
+  filter(!(is.na(HachnasaAvodaNeto) | HachnasaAvodaNeto == 888888)) %>%
   select(-c(YeshChaverim,
-            DiraNosefetBaalut, DiraBaalut_C)) %>% 
+            DiraNosefetBaalut, DiraBaalut_C,
+            MatzavTaasukaM_C)) %>% 
   mutate_all(~na_if(., 888888)) %>% 
-  na.omit()
+  na.omit() %>% 
+  # I want all variables to signfiy that "more" omeans "beeter", 
+  # therefore i multiplied the relevant variables by -1 (the values will be scaled afterwards)
+  mutate_at(.vars = vars(c(TzfifutDiyurM, MatzavBriut, MerutzeKesherMishp,
+                           MerutzeEzor, PehamimShimushInt,
+                           MerutzeChaim, 
+                           MerutzeKalkali, 
+                           TadirutChaverim)),
+            ~. * (-1)
+   
+  ) %>% 
+  mutate_at(.vars = vars(-SerialNumber), ~scale(., center = TRUE, scale = TRUE))
   
   
 
 library(cowplot)
-
 pca_fit <- y %>% 
   select(-SerialNumber) %>% 
   prcomp(scale = TRUE, center = TRUE) 

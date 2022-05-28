@@ -15,4 +15,4 @@ I built a score for the social status that is combination of education, life qua
 
 Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average. 
 
-* filterind the data - Filtering all ppl in age 45-54
+* filtering the data - Filtering all ppl in age 45-54
