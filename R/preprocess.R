@@ -1,6 +1,8 @@
 {
   library(tidyverse)
-  library(broom) 
+  library(tidymodels)
+  library(corrplot)
+  library(flextable)
 }
 
 social_mobility <- read_csv("data/Social_mobility-2018-Data.csv")  
@@ -137,6 +139,7 @@ x <- sc %>%
       Dat == 2 ~ "Musilm",
       !(Dat %in% c(1,2)) ~ "Else"
     ),
+    Ethnicity = relevel(factor(Ethnicity), "Jew, Secular"),
     TeudaGvoha = case_when(TeudaGvoha == 6 ~ 5,
                            TeudaGvoha == 7 ~ 0,
                            T ~ TeudaGvoha),
@@ -150,39 +153,61 @@ x <- sc %>%
                                       MaamadAvodaAv_C == 2 ~ "Business owner",
                                       MaamadAvodaAv_C == 4 ~ "Passed away"
     ),
+    father_work_at_age_15 = relevel(factor(father_work_at_age_15), "Employee"),
     mother_work_at_age_15 = case_when(is.na(MaamadAvodaEm_C) | MaamadAvodaEm_C == 3 ~ "Else",
                                       MaamadAvodaEm_C == 0 ~ "Didn't work",
                                       MaamadAvodaEm_C == 1 ~ "Employee",
                                       MaamadAvodaEm_C == 2 ~ "Business owner",
                                       MaamadAvodaEm_C == 4 ~ "Passed away"
-    )
+    ),
+    mother_work_at_age_15 = relevel(factor(mother_work_at_age_15), "Employee")
   ) %>% 
   select(-c(YelidBrham, SemelEretz,
             SemelEretzAv_C, SemelEretzEm_C,
             Dat, DatiutYehudiBen15,
             SherutTzahal, SherutLeumi,
-            MaamadAvodaEm_C, MaamadAvodaAv_C))
+            MaamadAvodaEm_C, MaamadAvodaAv_C,
+            TeudaGvoha))
 
 
 # Final Data
 final_data <- x %>% 
-  left_join(y_final)
+  left_join(y_final) %>% 
+  select(-SerialNumber) %>% 
+  rename(scs_outcome = y)
 
 
-
-
+## ==Splitting the data==
+set.seed(305777468)
+split_data <- initial_split(final_data, prop = 3/4)
+# Test
+test <- testing(split_data)
+# Train
+train <- training(split_data) 
 
 
 
 # PCA ---------------------------------------------------------------------
 library(cowplot)
-pca_fit <- y %>% 
-  select(-SerialNumber) %>% 
+pca_fit <- train %>% 
+  select_if(is.numeric) %>% 
   prcomp(scale = TRUE, center = TRUE) 
 
 arrow_style <- arrow(
   angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
 )
+
+
+pca_fit %>%
+  augment(train %>% 
+            select_if(is.numeric)) %>% # add original dataset back in
+  ggplot(aes(.fittedPC1, .fittedPC2)) + 
+  geom_point(size = 1.5) +
+  scale_color_manual(
+    values = c(malignant = "#D55E00", benign = "#0072B2")
+  ) +
+  theme_half_open(12) + background_grid()
+
 
 pca_fit %>%
   tidy(matrix = "rotation") %>%
@@ -197,3 +222,35 @@ pca_fit %>%
   xlim(-1.25, .5) + ylim(-.5, 1) +
   coord_fixed() + # fix aspect ratio to 1:1
   theme_minimal_grid(12)
+
+
+
+
+# corr on train -----------------------------------------------------------------
+
+cor_dat <- train %>% 
+  select_if(is.numeric) %>% 
+  cor()
+corrplot(cor_dat,
+         method = 'number',
+         type = "upper", diag = FALSE)
+
+
+
+# glm ---------------------------------------------------------------------
+
+gtsummary::tbl_summary(
+  data = train,
+  by = scs_outcome
+) %>% 
+  gtsummary::add_p()
+
+glm_fit <- glm(scs_outcome ~ .,
+               data = train,
+               family = binomial(logit))
+
+y_pred_train <- predict(glm_fit, type = "response")
+y_pred_test <- predict(glm_fit, newdata = test, type = "response")
+
+bind_cols(train, pred = y_pred_train) %>% View()
+bind_cols(test, pred = y_pred_test) %>% View()
