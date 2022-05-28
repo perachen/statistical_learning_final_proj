@@ -1,15 +1,19 @@
 ---
 title: "Project Proposal - Social Mobility"
 author: "Perach Hen Elkayam"
-date: '5-4-2022'
+date: '5.4.2022'
 output: pdf_document
 ---
 
 ## Motivation
 
-This project deals with the issue of social mobility in Israel. **Social mobility** is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in our country I find this issue very interesting and in this project I would like to find associative answers to the questions...........
+This project deals with the issue of social mobility in Israel. **Social mobility** is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in our country that includes a big variety of cultures, I believe that is easier to isolate variables that might indicate a possible improvement of social status. I find this issue very interesting because I can understand what it is needed from someone in order to improve and change his social status. In this project I would like to find answers to the questions:
+
+-   Can we predict future social status by the background of the participant and his parents.
 
 -   Trying to characterize similar groups by features of social mobility.
+
+-   Can we identify variables that influence social mobility.
 
 ## Description of the data set
 
@@ -49,4 +53,38 @@ The data consist of 402 questions in the subject of Social Mobility. In order to
 
 -   **Unsupervised Learning:** Can we find similarities between different participants by indications of their social status and split them to small amount of groups? If so, it might help us understand better the relationship between different characteristics of social status.
 
--    **Inference:** Can we estimate the effect of a specific variable (such as education) over social mobility by controlling the confounders (trying to find participants with similar backgrounds and compare those with and without education).\
+-    **Inference:** Can we estimate the effect of a specific variable (such as education) over social mobility by controlling the confounders (trying to find participants with similar backgrounds and compare those with and without education).
+
+
+\newpage
+## Methods:
+
+-   **Supervised Learning:**
+
+    -   Logistic Regression: I can investigate the coefficients easily.
+
+    -   Tree method: I can draw the decision tree easily.
+
+-   **Unsupervised Learning:**
+
+    -   KNN: Easy to understand, I can control the number of groups.
+
+    -   PCA: In order to investigate dimension reduction.
+
+-   **Inference:**
+
+    -   Logistic Regression with stratification over different populations in order to control the confounders.
+
+## Evaluation and Experimenting:
+
+-   **Supervised Learning:**
+
+    -   I will evaluate the performance of the algorithms by familiar performance metrics for prediction accuracy and simplicity of the model (hopefully the models will accurate and easy to interpret). I'll be using cross-validation methods for hyper parameter tuning for the tree model and stepwise selection for logistic regression.
+
+-   **Unsupervised Learning:**
+
+    -   I will evaluate the performance of the algorithm by trying to find consistency between my results and some known knowledge in the field of social mobility.
+
+-   **Inference:**
+
+    -   If the variable of interest will still be significant after controlling for the confounders by stratification of the population I will asses that the effect of the variable is in fact consistent with the theory and not just correlated with other significant variables.

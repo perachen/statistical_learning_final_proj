@@ -1,0 +1,18 @@
+---
+title: "Final report."
+author: "Perach Hen Elkayam"
+date: '2022-05-27'
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Building Score for social status
+
+I built a score for the social status that is combination of education, life quality, employment and economic status.
+
+Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average. 
+
+* filterind the data - Filtering all ppl in age 45-54
