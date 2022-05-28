@@ -4,49 +4,15 @@
 }
 
 social_mobility <- read_csv("data/Social_mobility-2018-Data.csv")  
-# filter(!(HachnasaKolelet %in% c(999999, 888888))) %>% 
-# select(SerialNumber,
-#        # Details about apartment, car and Housekeeping:
-#        DiraBaalut_C, # בעלות על דירה
-#        DiraNosefetBaalut, # דירה נוספת בבעלות  
-#        TzfifutDiyurM, # מספר אנשים לחדר בדירה
-#        Mechonitbaalut_C, # מספר מכוניות בבעלות
-#        # Positions on residence
-#        MerutzeEzor, # מרוצה מהאיזור בו אתה גר
-#        # Health and lifestyle
-#        MatzavBriut, # מצב בריאות
-#        # Skills: Studies, languages, courses, military service and driver’s license
-#        TeudaGvoha, # מהי התעודה או התואר הגבוה ביותר שקיבלת?
-#        # Computer and Internet use and access to technology
-#        PehamimShimushInt, # בדרך כלל, כמה פעמים בשבוע אתה משתמש באינטרנט? כולל שימוש באינטרנט לצורך עבודה
-#        # Employment
-#        MatzavTaasukaM_C, # מצב תעסוקה
-#        # contact with family and friends
-#        MerutzeKesherMishp, # האם את/ה מרוצה מהקשר שלך עם בני משפחתך?
-#        YeshChaverim,
-#        TadirutChaverim,
-#        # Economic status and income and welfare
-#        MerutzeChaim, # באופן כללי, האם את/ה מרוצה מחייך?
-#        MerutzeKalkali, # האם את/ה מרוצה ממצבך הכלכלי?
-#        HachnasaKolelet, # בחודש שעבר, מה הייתה הכנסתך ברוטו
-# ) 
-# 
 
-
-# preprocess
 # 888888 - Unknown
 # 999999 - NA
 sc <- social_mobility %>% 
   mutate_all(~na_if(., 999999)) %>%
-  select(-c(shana,
-            contains("Kodem"),
-            SibaMaavarMegurim,
-            contains("Zara"),
-  )) %>%
   # Filtering all ppl in age 45-54
   filter(Gil %in% c(6,7)) 
 
-
+# preprocessing the outcome
 y <- sc %>% 
   select(SerialNumber,
          # Details about apartment, car and Housekeeping:
@@ -95,7 +61,7 @@ y <- sc %>%
             MatzavTaasukaM_C)) %>% 
   mutate_all(~na_if(., 888888)) %>% 
   na.omit() %>% 
-  # I want all variables to signfiy that "more" omeans "beeter", 
+  # I want all variables to signify that "more" means "better", 
   # therefore i multiplied the relevant variables by -1 (the values will be scaled afterwards)
   mutate_at(.vars = vars(c(TzfifutDiyurM, MatzavBriut,
                            MerutzeKesherMishp,
@@ -117,11 +83,12 @@ y_final <- y %>%
   mutate(y = y > 0)
 
 
-
+# Preprocessing predictors ----
 x <- sc %>%
   inner_join(y_final , by = "SerialNumber") %>% 
   # TODO: Go BACK TO THE OTHER QUESTIONS BEFORE
-  select(YelidBrham,
+  select(SerialNumber,
+         YelidBrham,
          SemelEretz,
          SemelEretzAv_C,
          SemelEretzEm_C,
@@ -136,19 +103,8 @@ x <- sc %>%
          TeudaGvohaEm_C, # תעודה גבוהה - אם
          SherutTzahal,
          SherutLeumi,
-         # GilMegurimAtzmaim,
-         #      GilYeledRishon, # TODO: NEED TO MAKE MANIPULATION WITH THE AGE)
-         #      DatiutLoYehudi,
-         # DatiutLoYehudiBen15,
-         #      DatiutYehudi,
-         #      ShinuyDatiut,
-         #      HagdaratMotza_C,
-              MaamadAvodaAv_C, # כשהיית בן/בת 15 , האם אביך היה:
-              MaamadAvodaEm_C  # כשהיית בן/בת 15 , האם אמך היתה:
-         #      ,
-         #      ,
-         #      ,
-         # ,
+         MaamadAvodaAv_C, # כשהיית בן/בת 15 , האם אביך היה:
+         MaamadAvodaEm_C  # כשהיית בן/בת 15 , האם אמך היתה:
   ) %>% 
   mutate(birth_plcae = case_when(
     YelidBrham == 1 ~ "USSR",
@@ -187,13 +143,13 @@ x <- sc %>%
     TeudaGvohaAv_C = ifelse(TeudaGvohaAv_C %in% c(7, 888888), yes = 0, no = TeudaGvohaAv_C),
     TeudaGvohaEm_C = ifelse(TeudaGvohaEm_C %in% c(7, 888888), yes = 0, no = TeudaGvohaEm_C),
     service = case_when((SherutTzahal == 1) | (SherutTzahal == 2 & SherutLeumi == 1) ~ TRUE,
-                       T ~ FALSE),
+                        T ~ FALSE),
     father_work_at_age_15 = case_when(is.na(MaamadAvodaAv_C) | MaamadAvodaAv_C == 3 ~ "Else",
-                                MaamadAvodaAv_C == 0 ~ "Didn't work",
-                                MaamadAvodaAv_C == 1 ~ "Employee",
-                                MaamadAvodaAv_C == 2 ~ "Business owner",
-                                MaamadAvodaAv_C == 4 ~ "Passed away"
-                                ),
+                                      MaamadAvodaAv_C == 0 ~ "Didn't work",
+                                      MaamadAvodaAv_C == 1 ~ "Employee",
+                                      MaamadAvodaAv_C == 2 ~ "Business owner",
+                                      MaamadAvodaAv_C == 4 ~ "Passed away"
+    ),
     mother_work_at_age_15 = case_when(is.na(MaamadAvodaEm_C) | MaamadAvodaEm_C == 3 ~ "Else",
                                       MaamadAvodaEm_C == 0 ~ "Didn't work",
                                       MaamadAvodaEm_C == 1 ~ "Employee",
@@ -208,8 +164,9 @@ x <- sc %>%
             MaamadAvodaEm_C, MaamadAvodaAv_C))
 
 
-
-
+# Final Data
+final_data <- x %>% 
+  left_join(y_final)
 
 
 
