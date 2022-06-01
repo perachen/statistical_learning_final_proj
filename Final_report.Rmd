@@ -9,10 +9,45 @@ output: pdf_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Building Score for social status
+# Abstract
 
-I built a score for the social status that is combination of education, life quality, employment and economic status.
+# Introduction
 
-Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average. 
+This project deals with the issue of social mobility in Israel. Social mobility is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in our country that includes a big variety of cultures, I believe that is easier to isolate variables that might indicate a possible improvement of social status.
 
-* filtering the data - Filtering all ppl in age 45-54
+I find this issue very interesting because I can understand what it is needed from someone in order to improve and change his social status. In this project I would like to find answers to the questions:
+
+-   Can we predict future social status by the background of the participant and his parents.
+-   Trying to characterize similar groups by features of social mobility.
+-   Can we identify variables that influence social mobility.
+
+# Data Description
+
+### Building Score for socioeconomic status
+
+There are many ways to measure and define socioeconomic status. I built a score for the socioeconomic status that is a combination of education, life quality, employment and economic status.
+
+The following variables were chosen by me, each one had an equal weight:
+
+-   
+
+-   
+
+-   
+
+-   
+
+I took all of the mentioned variables, scaled them and calculated the mean for each individual in the data set. In order to use the new variable for the prediction models it was easier for me to make it binary and produce probabilities for being in a high socioeconomic status.
+
+Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
+
+-   filtering the data - Filtering all ppl in age 45-54
+
+# Methods
+
+# Results, discussion and conclusion
+
+# References
+
+
+[Questionnaire and more details on the survey in The Central Bureau of Statistics website](https://www.cbs.gov.il/he/publications/Pages/2020/%D7%94%D7%A1%D7%A7%D7%A8-%D7%94%D7%97%D7%91%D7%A8%D7%AA%D7%99-2018.aspx)
