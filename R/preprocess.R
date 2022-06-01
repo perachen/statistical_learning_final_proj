@@ -1,9 +1,10 @@
 {
-  library(tidyverse)
   library(tidymodels)
   library(corrplot)
   library(flextable)
-}
+  library(tidyverse)
+select <- dplyr::select
+  }
 
 social_mobility <- read_csv("data/Social_mobility-2018-Data.csv")  
 
@@ -73,22 +74,12 @@ y <- sc %>%
                            TadirutChaverim)),
             ~. * (-1)
             
-  ) %>% 
-  mutate_at(.vars = vars(-SerialNumber),
-            ~scale(., center = TRUE, scale = TRUE))
-
-
-y_final <- y %>% 
-  select(-SerialNumber) %>% 
-  rowMeans() %>% 
-  tibble(SerialNumber = y$SerialNumber, y = .) %>% 
-  mutate(y = y > 0)
+  ) %>%  
+  rename_at(.vars = vars(-SerialNumber), ~paste0(.x, "_y"))
 
 
 # Preprocessing predictors ----
 x <- sc %>%
-  inner_join(y_final , by = "SerialNumber") %>% 
-  # TODO: Go BACK TO THE OTHER QUESTIONS BEFORE
   select(SerialNumber,
          YelidBrham,
          SemelEretz,
@@ -170,26 +161,44 @@ x <- sc %>%
             TeudaGvoha))
 
 
-# Final Data
-final_data <- x %>% 
-  left_join(y_final) %>% 
-  select(-SerialNumber) %>% 
-  rename(scs_outcome = y)
 
 
 ## ==Splitting the data==
 set.seed(305777468)
-split_data <- initial_split(final_data, prop = 3/4)
+split_data <- initial_split(x, prop = 3/4)
 # Test
-test <- testing(split_data)
+test_dat <- testing(split_data) %>% 
+  left_join(y, by = "SerialNumber") %>% 
+  mutate_at(.vars = vars(ends_with("_y")),
+            ~scale(., center = TRUE, scale = TRUE)) %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+        )) %>% 
+  mutate(ses_outcome = ses_outcome > 0) %>% 
+  select(-ends_with("_y"), -SerialNumber) %>% 
+  na.omit()
+
+
+
 # Train
-train <- training(split_data) 
+train_dat <- training(split_data) %>% 
+  left_join(y, by = "SerialNumber") %>% 
+  mutate_at(.vars = vars(ends_with("_y")),
+            ~scale(., center = TRUE, scale = TRUE)) %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  mutate(ses_outcome = ses_outcome > 0) %>% 
+  select(-ends_with("_y"), -SerialNumber) %>% 
+  na.omit()
 
 
 
 # PCA ---------------------------------------------------------------------
 library(cowplot)
-pca_fit <- train %>% 
+pca_fit <- train_dat %>% 
   select_if(is.numeric) %>% 
   prcomp(scale = TRUE, center = TRUE) 
 
@@ -199,7 +208,7 @@ arrow_style <- arrow(
 
 
 pca_fit %>%
-  augment(train %>% 
+  augment(train_dat %>% 
             select_if(is.numeric)) %>% # add original dataset back in
   ggplot(aes(.fittedPC1, .fittedPC2)) + 
   geom_point(size = 1.5) +
@@ -227,30 +236,125 @@ pca_fit %>%
 
 
 # corr on train -----------------------------------------------------------------
-
-cor_dat <- train %>% 
+cor_dat <- train_dat %>% 
   select_if(is.numeric) %>% 
   cor()
 corrplot(cor_dat,
          method = 'number',
          type = "upper", diag = FALSE)
 
-
-
 # glm ---------------------------------------------------------------------
 
 gtsummary::tbl_summary(
-  data = train,
-  by = scs_outcome
-) %>% 
+  data = train_dat,
+  by = ses_outcome) %>% 
   gtsummary::add_p()
 
-glm_fit <- glm(scs_outcome ~ .,
-               data = train,
+glm_fit <- glm(ses_outcome ~ .,
+               data = train_dat,
                family = binomial(logit))
 
 y_pred_train <- predict(glm_fit, type = "response")
-y_pred_test <- predict(glm_fit, newdata = test, type = "response")
+y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
 
-bind_cols(train, pred = y_pred_train) %>% View()
-bind_cols(test, pred = y_pred_test) %>% View()
+bind_cols(train_dat, pred = y_pred_train)
+bind_cols(test_dat, pred = y_pred_test)
+
+# Simple Tree model -------------------------------------------------------
+
+library(rpart)
+library(rpart.plot)
+library(rattle)
+
+
+tree <- rpart(ses_outcome ~ .,
+              data = train_dat,
+              method = "class")
+prp(tree)
+
+train_probs <- predict(tree, newdata = train_dat, type = "prob")[,2]
+test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
+
+# Random Forest -----------------------------------------------------------
+ 
+library(randomForest)
+library(mlbench)
+library(caret)
+library(e1071)
+
+### Cross validation for random forest parameters
+customRF <- list(type = "Classification",
+                 library = "randomForest",
+                 loop = NULL)
+
+customRF$parameters <- data.frame(parameter = c("mtry", "ntree", "nodesize"),
+                                  class = rep("numeric", 3),
+                                  label = c("mtry", "ntree", "nodesize"))
+
+
+customRF$grid <- function(x, y, len = NULL, search = "grid") {}
+
+
+customRF$fit <- function(x, y, wts, param, lev, last, weights, classProbs) {
+  randomForest(x, y,
+               mtry = param$mtry,
+               ntree=param$ntree,
+               nodesize = param$nodesize)
+}
+
+#Predict label
+customRF$predict <- function(modelFit, newdata, preProc = NULL, 
+                             submodels = NULL)
+  predict(modelFit, newdata)
+
+#Predict prob
+customRF$prob <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+  predict(modelFit, newdata, type = "prob")
+
+customRF$sort <- function(x) x[order(x[,1]),]
+customRF$levels <- function(x) x$classes
+
+control <- trainControl(method="repeatedcv", 
+                        number=10, 
+                        repeats=3,
+                        allowParallel = TRUE)
+
+tunegrid <- expand.grid(.mtry=c(1:5),
+                        .ntree=c(5, 10, 15), 
+                        .nodesize = c(20, 40, 60))
+
+set.seed(305777468)
+custom <- train(factor(ses_outcome) ~ ., 
+                data = train_dat,
+                method=customRF, 
+                metric='Accuracy', 
+                tuneGrid=tunegrid, 
+                trControl=control)
+
+custom$results %>%  
+  arrange(desc(Accuracy))
+
+### Final random forest model
+set.seed(305777468)
+rf <- randomForest(factor(ses_outcome) ~ .,
+                   data = train_dat,
+                   ntree = 50,
+                   mtry = 40, 
+                   nodesize = 60)
+prediction_func(rf, test_dat)$err
+prediction_func(rf, train_dat)$err
+
+importance(rf)
+varImpPlot(rf)
+
+rf_test <- predict(rf, test_dat, type = "prob")[,2]
+rf_train <- predict(rf, train_dat, type = "prob")[,2]
+
+
+# KNN ---------------------------------------------------------------------
+
+
+
+
+
+
