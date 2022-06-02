@@ -15,7 +15,7 @@ sc <- social_mobility %>%
   # Filtering all ppl in age 45-54
   filter(Gil %in% c(6,7)) 
 
-# preprocessing the outcome
+# preprocessing the outcome ----
 y <- sc %>% 
   select(SerialNumber,
          # Details about apartment, car and Housekeeping:
@@ -78,7 +78,7 @@ y <- sc %>%
   rename_at(.vars = vars(-SerialNumber), ~paste0(.x, "_y"))
 
 
-# Preprocessing predictors ----
+# Preprocessing predictors --
 x <- sc %>%
   select(SerialNumber,
          YelidBrham,
@@ -177,7 +177,7 @@ test_dat <- testing(split_data) %>%
         )) %>% 
   mutate(ses_outcome = ses_outcome > 0) %>% 
   select(-ends_with("_y"), -SerialNumber) %>% 
-  na.omit()
+  na.omit() 
 
 
 
@@ -193,7 +193,6 @@ train_dat <- training(split_data) %>%
   mutate(ses_outcome = ses_outcome > 0) %>% 
   select(-ends_with("_y"), -SerialNumber) %>% 
   na.omit()
-
 
 
 # PCA ---------------------------------------------------------------------
@@ -254,11 +253,15 @@ glm_fit <- glm(ses_outcome ~ .,
                data = train_dat,
                family = binomial(logit))
 
-y_pred_train <- predict(glm_fit, type = "response")
-y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
+y_pred_train <- predict(glm_fit, type = "response") 
+# table((y_pred_train > 0.5) == train_dat$ses_outcome)
+glm_train_accuracy <- mean((y_pred_train > 0.5) == train_dat$ses_outcome)
 
-bind_cols(train_dat, pred = y_pred_train)
-bind_cols(test_dat, pred = y_pred_test)
+y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
+glm_test_accuracy <- mean((y_pred_test > 0.5) == test_dat$ses_outcome)
+
+# bind_cols(train_dat, pred = y_pred_train)
+# bind_cols(test_dat, pred = y_pred_test)
 
 # Simple Tree model -------------------------------------------------------
 
@@ -273,8 +276,11 @@ tree <- rpart(ses_outcome ~ .,
 prp(tree)
 
 train_probs <- predict(tree, newdata = train_dat, type = "prob")[,2]
-test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
+stree_accuracy_train <- mean((train_probs > 0.5) == train_dat$ses_outcome)
 
+
+test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
+stree_accuracy_test <- mean((test_probs > 0.5) == test_dat$ses_outcome)
 # Random Forest -----------------------------------------------------------
  
 library(randomForest)
@@ -314,23 +320,24 @@ customRF$prob <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
 customRF$sort <- function(x) x[order(x[,1]),]
 customRF$levels <- function(x) x$classes
 
-control <- trainControl(method="repeatedcv", 
-                        number=10, 
-                        repeats=3,
+control <- trainControl(method = "repeatedcv", 
+                        number = 10, 
+                        repeats = 3,
                         allowParallel = TRUE)
 
 tunegrid <- expand.grid(.mtry=c(1:5),
-                        .ntree=c(5, 10, 15), 
-                        .nodesize = c(20, 40, 60))
+                        .ntree=c(5, 10, 15, 20), 
+                        .nodesize = c(20, 40, 60, 80))
 
 set.seed(305777468)
 custom <- train(factor(ses_outcome) ~ ., 
                 data = train_dat,
-                method=customRF, 
-                metric='Accuracy', 
-                tuneGrid=tunegrid, 
-                trControl=control)
+                method = customRF, 
+                metric = 'Accuracy', 
+                tuneGrid = tunegrid, 
+                trControl = control)
 
+# choosing the best parameters
 custom$results %>%  
   arrange(desc(Accuracy))
 
@@ -338,23 +345,148 @@ custom$results %>%
 set.seed(305777468)
 rf <- randomForest(factor(ses_outcome) ~ .,
                    data = train_dat,
-                   ntree = 50,
-                   mtry = 40, 
-                   nodesize = 60)
-prediction_func(rf, test_dat)$err
-prediction_func(rf, train_dat)$err
+                   ntree = 15,
+                   mtry = 3, 
+                   nodesize = 80)
 
 importance(rf)
 varImpPlot(rf)
 
-rf_test <- predict(rf, test_dat, type = "prob")[,2]
+
 rf_train <- predict(rf, train_dat, type = "prob")[,2]
+rf_accuracy_train <- mean((rf_train > 0.5) == train_dat$ses_outcome)
+
+rf_test <- predict(rf, test_dat, type = "prob")[,2]
+rf_accuracy_test <- mean((rf_test > 0.5) == test_dat$ses_outcome)
 
 
-# KNN ---------------------------------------------------------------------
+# Summary models performance ----------------------------------------------
+
+tibble("Model" = c("Logistic Regression", "Decision Tree", "Random Forest"),
+       "Train Accuracy" = c(glm_train_accuracy,
+                            stree_accuracy_train,
+                            rf_accuracy_train),
+       "Test Accuracy" = c(glm_test_accuracy,
+                           stree_accuracy_test,
+                           rf_accuracy_test)
+       ) 
+
+
+# Bagging -----------------------------------------------------------------
+
+library(purrr)
+set.seed(305777468)
+num_use_tree <- c(100, 500, 1000, 1500, 2000, 2500, 3000)
+
+extract_bagging_model_and_runing_time <- function(mfinal_input) {
+  
+  start_time <- proc.time()
+  model_obj <- adabag::bagging(letter ~ .,
+                               data = train_data_trees,
+                               control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
+                               mfinal = mfinal_input)
+  end_time <- proc.time() - start_time
+  
+  orc_bag_pred_test <- predict.bagging(model_obj, newdata = test_data_trees)$error
+  orc_bag_pred_train <- predict.bagging(model_obj, newdata = train_data_trees)$error
+  
+  rm(model_obj)
+  
+  list(test_error = orc_bag_pred_test,
+       train_error = orc_bag_pred_train,
+       running_time = end_time[3])
+}
+# TODO - comment out in the code preview
+# bagging_models <- map(num_use_tree, ~extract_bagging_model_and_runing_time(.x))
+
+bagging_table <- map_df(bagging_models, ~as_tibble(.x)) %>% 
+  mutate("Number of Trees" = num_use_tree) 
 
 
 
+
+
+
+
+
+
+
+
+
+# Trying to make one bagging model
+train_data_t <- train_dat %>% mutate(ses_outcome = factor(ses_outcome))
+model_obj <- adabag::bagging(ses_outcome ~ .,
+                             data = train_data_t,
+                             control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
+                             mfinal = 2)
+
+
+grid <- expand.grid(mfinal = (1:3)*3, maxdepth = c(1, 3))
+
+
+control <- trainControl(method = "repeatedcv", 
+                        number = 10, 
+                        repeats = 3,
+                        allowParallel = TRUE,
+                        classProbs = TRUE)
+
+adabag <- train(ses_outcome ~ ., 
+                data = train_dat 
+                  mutate(ses_outcome = factor(ses_outcome)),
+                method = "AdaBag", 
+                metric = 'ROC', 
+                tuneGrid = grid, 
+                trControl = control)
+
+factor(as.numeric(train_dat$ses_outcome)
+
+## Boosting
+set.seed(305777468)
+extract_boosting_model_and_runing_time <- function(mfinal_input) {
+  
+  start_time <- proc.time()
+  model_obj <- boosting(letter ~ ., data = train_data_trees,
+                        control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
+                        mfinal = mfinal_input)
+  end_time <- proc.time() - start_time
+  
+  
+  orc_boost_pred_test <- predict(model_obj, newdata = test_data_trees)$error
+  orc_boost_pred_train <- predict(model_obj, newdata = train_data_trees)$error
+  
+  rm(model_obj)
+  
+  
+  list(test_error = orc_boost_pred_test,
+       train_error = orc_boost_pred_train,
+       running_time = end_time[3])
+  
+  
+}
+# TODO - comment out in the code preview
+# boosting_models <- map(num_use_tree, ~extract_boosting_model_and_runing_time(.x)) 
+
+boosting_table <- map_df(boosting_models, ~as_tibble(.x)) %>% 
+  mutate("Number of Trees" = num_use_tree) 
+
+
+
+
+
+
+train_dat_t <- train_dat %>% 
+  mutate(ses_outcome = as.numeric(ses_outcome)) %>% 
+  select_if(
+    is.numeric
+  ) %>% 
+  mutate(ses_outcome = as.factor(ses_outcome))
+
+
+
+model_obj <- adabag::boosting(ses_outcome ~ .,
+                      data = train_dat_t,
+                      control = rpart.control(minbucket = 1, minsplit = 5),
+                      mfinal = 1)
 
 
 
