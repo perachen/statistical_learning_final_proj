@@ -261,7 +261,8 @@ corrplot(cor_dat,
 gtsummary::tbl_summary(
   data = train_dat,
   by = ses_outcome) %>% 
-  gtsummary::add_p()
+  gtsummary::add_p() %>% 
+  gtsummary::bold_p()
 
 glm_fit <- glm(ses_outcome ~ .,
                data = train_dat,
@@ -277,7 +278,11 @@ y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
 glm_test_accuracy <- mean((y_pred_test > 0.5) == test_dat$ses_outcome)
 
 glm_test_auc <- round(pROC::auc(test_dat$ses_outcome,
-                                  y_pred_test), 3)
+                                y_pred_test), 3)
+
+
+gtsummary::tbl_regression(glm_fit) %>% 
+  gtsummary::bold_p()
 
 
 # Simple Tree model -------------------------------------------------------
@@ -303,6 +308,17 @@ stree_accuracy_test <- mean((test_probs > 0.5) == test_dat$ses_outcome)
 
 stree_test_auc <- round(pROC::auc(test_dat$ses_outcome,
                                   test_probs), 3)
+
+# importance plot
+tree$variable.importance %>% 
+  data.frame() %>%
+  rownames_to_column(var = "Feature") %>%
+  rename(Overall = '.') %>%
+  ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+  geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = "", title = "Variable Importance with Simple Classication")
 
 # Random Forest -----------------------------------------------------------
 
@@ -352,44 +368,40 @@ tunegrid <- expand.grid(.mtry=c(1:5),
                         .ntree=c(5, 10, 15, 20), 
                         .nodesize = c(20, 40, 60, 80))
 
+### Random forest model
 set.seed(305777468)
-custom <- train(factor(ses_outcome) ~ ., 
-                data = train_dat,
-                method = customRF, 
-                metric = 'Accuracy', 
-                tuneGrid = tunegrid, 
-                trControl = control)
+rf_model <- train(factor(ses_outcome) ~ ., 
+                  data = train_dat,
+                  method = customRF, 
+                  metric = 'Accuracy', 
+                  tuneGrid = tunegrid, 
+                  trControl = control)
 
-# choosing the best parameters
-custom$results %>%  
+
+# Choosing the best parameters
+rf_model$results %>%  
   arrange(desc(Accuracy))
 
-### Final random forest model
-set.seed(305777468)
-rf <- randomForest(factor(ses_outcome) ~ .,
-                   data = train_dat,
-                   ntree = 15,
-                   mtry = 3, 
-                   nodesize = 80)
-
-importance(rf)
-varImpPlot(rf)
-
-
-rf_train <- predict(rf, train_dat, type = "prob")[,2]
+rf_train <- predict(rf_model, train_dat, type = "prob")[,2]
 rf_accuracy_train <- mean((rf_train > 0.5) == train_dat$ses_outcome)
 RF_train_auc <- round(pROC::auc(train_dat$ses_outcome,
                                 rf_train), 3)
 
 
-
-rf_test <- predict(rf, test_dat, type = "prob")[,2]
+rf_test <- predict(rf_model, test_dat, type = "prob")[,2]
 rf_accuracy_test <- mean((rf_test > 0.5) == test_dat$ses_outcome)
 RF_test_auc <- round(pROC::auc(test_dat$ses_outcome,
                                rf_test), 3)
 
-
-
+# importance plot
+rf_model$finalModel$importance %>% 
+  data.frame() %>%
+  rownames_to_column(var = "Feature") %>%
+  ggplot(aes(x = fct_reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_pointrange(aes(ymin = 0, ymax = MeanDecreaseGini), color = "cadetblue", size = .3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = "", title = "Variable Importance with Random Forest")
 
 
 # SVM -------------------------------------------------------------------------
@@ -476,27 +488,29 @@ svm_radial_test_pred <- mean((svm_radial_pred_test > 0.5) ==
 
 
 auc_radial_train <- round(as.numeric(pROC::auc(numeric_train_dat$ses_outcome,
-                                         svm_radial_pred_train)), 3)
+                                               svm_radial_pred_train)), 3)
 
 auc_radial_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
-                             svm_radial_pred_test), 3)
+                                   svm_radial_pred_test), 3)
 
 
 
 # Neural Network -----------------------------------------------------------
 set.seed(305777468)
 train_neuralnetwork <- caret::train(as.factor(ses_outcome) ~., 
-                                    data = numeric_train_dat %>% 
-                                      mutate(ses_outcome = as.factor(ses_outcome)), 
+                                    data = numeric_train_dat, 
                                     method = "nnet",
-                                    tuneGrid = expand.grid(size = c(10),
-                                                           decay = c(0.1)),
+                                    tuneGrid = expand.grid(size = c(10, 15, 20,
+                                                                    25),
+                                                           decay = c(0.1, 0.6, 0.7,
+                                                                     0.8)),
                                     trControl = trainControl(method = "LGOCV",
-                                                             number = 2, p = 0.6),
+                                                             number = 3, p = 0.8),
                                     trace = TRUE
 )
 
-nn_pred_train <- predict(train_neuralnetwork, newdata = numeric_train_dat, type = 'prob')[,2]
+nn_pred_train <- predict(train_neuralnetwork, newdata = numeric_train_dat,
+                         type = 'prob')[,2]
 nn_train_pred <- mean((nn_pred_train > 0.5) ==
                         numeric_train_dat$ses_outcome)
 auc_nn_train <- round(pROC::auc(numeric_train_dat$ses_outcome,
@@ -507,9 +521,16 @@ auc_nn_train <- round(pROC::auc(numeric_train_dat$ses_outcome,
 nn_pred_test <- predict(train_neuralnetwork,
                         newdata = numeric_test_dat, type = 'prob')[,2]
 nn_test_pred <- mean((nn_pred_test > 0.5) ==
-                               numeric_test_dat$ses_outcome)
+                       numeric_test_dat$ses_outcome)
 auc_nn_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
                                nn_pred_test), 3)
+
+
+# By Service
+
+mean(train_dat$service == train_dat$ses_outcome)
+mean(test_dat$service == test_dat$ses_outcome)
+
 
 # Summary models performance ----------------------------------------------
 library(glue)
@@ -520,20 +541,110 @@ tibble("Model" = c("Logistic Regression",
                    "Linear SVM",
                    "Neural Network"),
        "Train Accuracy (AUC)" = c(
-                            glue("{round(glm_train_accuracy*100, 3)}% (glm_train_auc)"),
-                            glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
-                            glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
-                            glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
-                            glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
-                            glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
-                            ),
+         glue("{round(glm_train_accuracy*100, 3)}% ({glm_train_auc})"),
+         glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
+         glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
+         glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
+         glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
+         glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
+       ),
        "Test Accuracy (AUC)" = c(
-         glue("{round(glm_test_accuracy*100, 3)}% (glm_test_auc)"),
+         glue("{round(glm_test_accuracy*100, 3)}% ({glm_test_auc})"),
          glue("{round(stree_accuracy_test*100, 3)}% ({stree_test_auc})"),
          glue("{round(rf_accuracy_test*100, 3)}% ({RF_test_auc})"),
          glue("{round(svm_radial_test_pred*100, 3)}% ({auc_radial_test})"),
          glue("{round(svm_linear_test_pred*100, 3)}% ({svm_linear_test_auc})"),
          glue("{round(nn_test_pred*100, 3)}% ({auc_nn_test})")
-                           )
-) 
+       )
+) %>% 
+  flextable()
+
+
+# PCA on the outcome variable ---------------------------------------------
+
+y_scaled <- y %>% 
+  mutate_at(.vars = vars(-SerialNumber),
+            ~scale(., center = TRUE, scale = TRUE))
+
+
+pr <- y_scaled %>% 
+  select(-SerialNumber) %>%   
+  prcomp()
+# prin <- y_scaled %>% 
+#   select(-SerialNumber) %>% 
+#   princomp()
+
+
+library(ggfortify)
+
+plotly::ggplotly(
+  autoplot(pr,
+           data = y  %>% 
+             left_join(x,
+                       by = "SerialNumber") %>% 
+             select(-SerialNumber),
+           colour = "service",
+           frame = TRUE, 
+           frame.type = 'norm',
+           loadings.label = TRUE,
+           loadings = TRUE
+  ) +
+    theme_classic()
+)
+
+
+
+# Exploring the data ------------------------------------------------------
+## Big and meaningful conclusion!
+service_by_ethnicity <- y %>%
+  mutate(
+  ses_outcome = rowMeans(
+    select(., ends_with("_y")) #%>% 
+  )) %>% 
+  left_join(x,
+            by = "SerialNumber") %>% 
+  select(ses_outcome, service, Ethnicity) %>% 
+  ggplot(
+    aes(x = ses_outcome, fill = service)
+  ) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~Ethnicity) +
+  xlab("Socioeconomic Score (centerd and scaled)") +
+  scale_fill_manual(values = c("darkorange","cyan4")) +
+  labs(caption = "Else:Christians, Druze, other religions, atheists") +
+  theme(plot.caption = element_text(hjust = 0, size = 11))
+
+
+y %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  left_join(x,
+            by = "SerialNumber") %>% 
+  select(ses_outcome, service, Minn) %>% 
+  ggplot(
+    aes(x = ses_outcome, fill = service)
+  ) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~Minn) 
+
+
+y %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  left_join(x,
+            by = "SerialNumber") %>% 
+  select(ses_outcome, service, father_work_at_age_15, 
+         mother_work_at_age_15) %>% 
+  ggplot(
+    aes(x = ses_outcome, fill = service)
+  ) +
+  geom_density(alpha = 0.5) +
+  # facet_wrap( ~  father_work_at_age_15)  
+  facet_wrap( ~  father_work_at_age_15)  
+
+
 
