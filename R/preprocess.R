@@ -3,8 +3,8 @@
   library(corrplot)
   library(flextable)
   library(tidyverse)
-select <- dplyr::select
-  }
+  select <- dplyr::select
+}
 
 social_mobility <- read_csv("data/Social_mobility-2018-Data.csv")  
 
@@ -27,10 +27,10 @@ y <- sc %>%
          MerutzeEzor, # מרוצה מהאיזור בו אתה גר
          # Health and lifestyle
          MatzavBriut, # מצב בריאות
-         # Skills: Studies, languages, courses, military service and driver’s license
+         # Skills: Studies,languages,courses,military service and driver’s license
          TeudaGvoha, # מהי התעודה או התואר הגבוה ביותר שקיבלת?
          # Computer and Internet use and access to technology
-         PehamimShimushInt, # בדרך כלל, כמה פעמים בשבוע אתה משתמש באינטרנט? כולל שימוש באינטרנט לצורך עבודה
+         PehamimShimushInt, # בדרך כלל, כמה פעמים בשבוע אתה משתמש באינטרנט?
          # Employment
          MatzavTaasukaM_C, # מצב תעסוקה
          # contact with family and friends
@@ -44,7 +44,8 @@ y <- sc %>%
   ) %>% 
   mutate(TadirutChaverim = ifelse(YeshChaverim %in% c(2, 888888), yes = 5,
                                   no = TadirutChaverim),
-         HachnasaAvodaNeto = case_when(MatzavTaasukaM_C %in% c(2,3) & is.na(HachnasaAvodaNeto) ~ 0,
+         HachnasaAvodaNeto = case_when(MatzavTaasukaM_C %in% c(2,3) &
+                                         is.na(HachnasaAvodaNeto) ~ 0,
                                        T ~ HachnasaAvodaNeto),
          HachnasaAvodaNeto = ifelse(HachnasaAvodaNeto == 11, yes = 0,
                                     no = HachnasaAvodaNeto),
@@ -65,7 +66,8 @@ y <- sc %>%
   mutate_all(~na_if(., 888888)) %>% 
   na.omit() %>% 
   # I want all variables to signify that "more" means "better", 
-  # therefore i multiplied the relevant variables by -1 (the values will be scaled afterwards)
+  # therefore i multiplied the relevant variables by -1
+  # (the values will be scaled afterwards)
   mutate_at(.vars = vars(c(TzfifutDiyurM, MatzavBriut,
                            MerutzeKesherMishp,
                            MerutzeEzor, PehamimShimushInt,
@@ -101,11 +103,16 @@ x <- sc %>%
   ) %>% 
   mutate(birth_plcae = case_when(
     YelidBrham == 1 ~ "USSR",
-    SemelEretz == 1 & SemelEretzEm_C != SemelEretzAv_C ~ "Israel (parents: Mixed)",
-    SemelEretz == 1 & SemelEretzEm_C == 1 & SemelEretzAv_C == 1 ~ "Israel (parents: Israel)",
-    SemelEretz == 1 & SemelEretzEm_C == 2 & SemelEretzAv_C == 2 ~ "Israel (parents: Europe / America)",
-    SemelEretz == 1 & SemelEretzEm_C == 3 & SemelEretzAv_C == 3 ~ "Israel (parents: Asia)",
-    SemelEretz == 1 & SemelEretzEm_C == 4 & SemelEretzAv_C == 4 ~ "Israel (parents: Africa)",
+    SemelEretz == 1 & SemelEretzEm_C != SemelEretzAv_C ~
+      "Israel (parents: Mixed)",
+    SemelEretz == 1 & SemelEretzEm_C == 1 & SemelEretzAv_C == 1 ~ 
+      "Israel (parents: Israel)",
+    SemelEretz == 1 & SemelEretzEm_C == 2 & SemelEretzAv_C == 2 ~
+      "Israel (parents: Europe / America)",
+    SemelEretz == 1 & SemelEretzEm_C == 3 & SemelEretzAv_C == 3 ~
+      "Israel (parents: Asia)",
+    SemelEretz == 1 & SemelEretzEm_C == 4 & SemelEretzAv_C == 4 ~
+      "Israel (parents: Africa)",
     SemelEretz == 2 & YelidBrham == 2 ~ "Europe / America",
     SemelEretz == 3 ~ "Asia", 
     SemelEretz == 4 ~ "Africa"),
@@ -114,12 +121,14 @@ x <- sc %>%
     GilNisuinRishon = case_when(GilNisuinRishon %in% c(7:10, 888888) ~ 7,
                                 is.na(GilNisuinRishon) ~ 7,
                                 T ~ GilNisuinRishon), # לא התחתנו עד גיל 30
-    GilMegurimAtzmaim = ifelse(GilMegurimAtzmaim == 0 | GilMegurimAtzmaim == 888888,
+    GilMegurimAtzmaim = ifelse(GilMegurimAtzmaim == 0 |
+                                 GilMegurimAtzmaim == 888888,
                                yes = 8, no = GilMegurimAtzmaim),
     # לא הביאו ילדים עד גיל 30
     GilYeledRishon = ifelse(GilYeledRishon %in% c(8:10) |
                               is.na(GilYeledRishon) |
-                              GilYeledRishon == 888888, yes = 7, no = GilYeledRishon
+                              GilYeledRishon == 888888, yes = 7,
+                            no = GilYeledRishon
     ),
     Ethnicity = case_when(
       Dat == 1 & DatiutYehudiBen15 == 1 ~ "Jew, Haredi",
@@ -134,18 +143,23 @@ x <- sc %>%
     TeudaGvoha = case_when(TeudaGvoha == 6 ~ 5,
                            TeudaGvoha == 7 ~ 0,
                            T ~ TeudaGvoha),
-    TeudaGvohaAv_C = ifelse(TeudaGvohaAv_C %in% c(7, 888888), yes = 0, no = TeudaGvohaAv_C),
-    TeudaGvohaEm_C = ifelse(TeudaGvohaEm_C %in% c(7, 888888), yes = 0, no = TeudaGvohaEm_C),
-    service = case_when((SherutTzahal == 1) | (SherutTzahal == 2 & SherutLeumi == 1) ~ TRUE,
+    TeudaGvohaAv_C = ifelse(TeudaGvohaAv_C %in% c(7, 888888), yes = 0, 
+                            no = TeudaGvohaAv_C),
+    TeudaGvohaEm_C = ifelse(TeudaGvohaEm_C %in% c(7, 888888), yes = 0,
+                            no = TeudaGvohaEm_C),
+    service = case_when((SherutTzahal == 1) | 
+                          (SherutTzahal == 2 & SherutLeumi == 1) ~ TRUE,
                         T ~ FALSE),
-    father_work_at_age_15 = case_when(is.na(MaamadAvodaAv_C) | MaamadAvodaAv_C == 3 ~ "Else",
+    father_work_at_age_15 = case_when(is.na(MaamadAvodaAv_C) | 
+                                        MaamadAvodaAv_C == 3 ~ "Else",
                                       MaamadAvodaAv_C == 0 ~ "Didn't work",
                                       MaamadAvodaAv_C == 1 ~ "Employee",
                                       MaamadAvodaAv_C == 2 ~ "Business owner",
                                       MaamadAvodaAv_C == 4 ~ "Passed away"
     ),
     father_work_at_age_15 = relevel(factor(father_work_at_age_15), "Employee"),
-    mother_work_at_age_15 = case_when(is.na(MaamadAvodaEm_C) | MaamadAvodaEm_C == 3 ~ "Else",
+    mother_work_at_age_15 = case_when(is.na(MaamadAvodaEm_C) |
+                                        MaamadAvodaEm_C == 3 ~ "Else",
                                       MaamadAvodaEm_C == 0 ~ "Didn't work",
                                       MaamadAvodaEm_C == 1 ~ "Employee",
                                       MaamadAvodaEm_C == 2 ~ "Business owner",
@@ -174,7 +188,7 @@ test_dat <- testing(split_data) %>%
   mutate(
     ses_outcome = rowMeans(
       select(., ends_with("_y")) #%>% 
-        )) %>% 
+    )) %>% 
   mutate(ses_outcome = ses_outcome > 0) %>% 
   select(-ends_with("_y"), -SerialNumber) %>% 
   na.omit() 
@@ -254,14 +268,17 @@ glm_fit <- glm(ses_outcome ~ .,
                family = binomial(logit))
 
 y_pred_train <- predict(glm_fit, type = "response") 
-# table((y_pred_train > 0.5) == train_dat$ses_outcome)
 glm_train_accuracy <- mean((y_pred_train > 0.5) == train_dat$ses_outcome)
+glm_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                 y_pred_train), 3)
+
 
 y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
 glm_test_accuracy <- mean((y_pred_test > 0.5) == test_dat$ses_outcome)
 
-# bind_cols(train_dat, pred = y_pred_train)
-# bind_cols(test_dat, pred = y_pred_test)
+glm_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                                  y_pred_test), 3)
+
 
 # Simple Tree model -------------------------------------------------------
 
@@ -277,12 +294,18 @@ prp(tree)
 
 train_probs <- predict(tree, newdata = train_dat, type = "prob")[,2]
 stree_accuracy_train <- mean((train_probs > 0.5) == train_dat$ses_outcome)
+stree_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                   train_probs), 3)
 
 
 test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
 stree_accuracy_test <- mean((test_probs > 0.5) == test_dat$ses_outcome)
+
+stree_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                                  test_probs), 3)
+
 # Random Forest -----------------------------------------------------------
- 
+
 library(randomForest)
 library(mlbench)
 library(caret)
@@ -355,138 +378,162 @@ varImpPlot(rf)
 
 rf_train <- predict(rf, train_dat, type = "prob")[,2]
 rf_accuracy_train <- mean((rf_train > 0.5) == train_dat$ses_outcome)
+RF_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                rf_train), 3)
+
+
 
 rf_test <- predict(rf, test_dat, type = "prob")[,2]
 rf_accuracy_test <- mean((rf_test > 0.5) == test_dat$ses_outcome)
+RF_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                               rf_test), 3)
 
 
-# Summary models performance ----------------------------------------------
-
-tibble("Model" = c("Logistic Regression", "Decision Tree", "Random Forest"),
-       "Train Accuracy" = c(glm_train_accuracy,
-                            stree_accuracy_train,
-                            rf_accuracy_train),
-       "Test Accuracy" = c(glm_test_accuracy,
-                           stree_accuracy_test,
-                           rf_accuracy_test)
-       ) 
 
 
-# Bagging -----------------------------------------------------------------
 
-library(purrr)
+# SVM -------------------------------------------------------------------------
+# preprocess 
+recp_dat <- recipe(ses_outcome ~ ., data = train_dat) %>% 
+  step_dummy(c("birth_plcae",
+               "Ethnicity",
+               "father_work_at_age_15",
+               "mother_work_at_age_15"
+  ))
+
+numeric_train_dat <- recipes::prep(recp_dat) %>% 
+  recipes::bake(new_data = train_dat) %>% 
+  mutate(service = as.numeric(service),
+         Minn = ifelse(Minn == "Male", 1, 0)) %>%
+  mutate_at(vars(-ses_outcome), ~scale(., center = TRUE, scale = TRUE)) 
+
+
+numeric_test_dat <- recipes::prep(recp_dat) %>% 
+  recipes::bake(new_data = test_dat) %>% 
+  mutate(service = as.numeric(service),
+         Minn = ifelse(Minn == "Male", 1, 0)) %>%
+  mutate_at(vars(-ses_outcome), ~scale(., center = TRUE, scale = TRUE)) 
+
+
+# SVM Linear
+library(caret)
 set.seed(305777468)
-num_use_tree <- c(100, 500, 1000, 1500, 2000, 2500, 3000)
-
-extract_bagging_model_and_runing_time <- function(mfinal_input) {
-  
-  start_time <- proc.time()
-  model_obj <- adabag::bagging(letter ~ .,
-                               data = train_data_trees,
-                               control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
-                               mfinal = mfinal_input)
-  end_time <- proc.time() - start_time
-  
-  orc_bag_pred_test <- predict.bagging(model_obj, newdata = test_data_trees)$error
-  orc_bag_pred_train <- predict.bagging(model_obj, newdata = train_data_trees)$error
-  
-  rm(model_obj)
-  
-  list(test_error = orc_bag_pred_test,
-       train_error = orc_bag_pred_train,
-       running_time = end_time[3])
-}
-# TODO - comment out in the code preview
-# bagging_models <- map(num_use_tree, ~extract_bagging_model_and_runing_time(.x))
-
-bagging_table <- map_df(bagging_models, ~as_tibble(.x)) %>% 
-  mutate("Number of Trees" = num_use_tree) 
-
-
-
-
-
-
-
-
-
-
-
-
-# Trying to make one bagging model
-train_data_t <- train_dat %>% mutate(ses_outcome = factor(ses_outcome))
-model_obj <- adabag::bagging(ses_outcome ~ .,
-                             data = train_data_t,
-                             control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
-                             mfinal = 2)
-
-
-grid <- expand.grid(mfinal = (1:3)*3, maxdepth = c(1, 3))
-
-
 control <- trainControl(method = "repeatedcv", 
                         number = 10, 
                         repeats = 3,
-                        allowParallel = TRUE,
-                        classProbs = TRUE)
+                        allowParallel = TRUE)
 
-adabag <- train(ses_outcome ~ ., 
-                data = train_dat 
-                  mutate(ses_outcome = factor(ses_outcome)),
-                method = "AdaBag", 
-                metric = 'ROC', 
-                tuneGrid = grid, 
-                trControl = control)
+svm_cv_linear <- train(ses_outcome ~., 
+                       data = numeric_train_dat %>% 
+                         mutate(ses_outcome = as.factor(ses_outcome)), 
+                       method = "svmLinear", 
+                       trControl = train_control, 
+                       tuneGrid = expand.grid(C = seq(0, 2, length = 20)),
+                       preProcess = c("center","scale"), 
+                       prob.model = TRUE)
 
-factor(as.numeric(train_dat$ses_outcome)
+svm_linear_pred_train <- predict(svm_cv_linear, newdata = numeric_train_dat,
+                                 type = 'prob')[,2]
 
-## Boosting
+svm_linear_train_pred <- mean((svm_linear_pred_train > 0.5) == 
+                                numeric_train_dat$ses_outcome)
+
+svm_linear_train_auc <- round(pROC::auc(numeric_train_dat$ses_outcome,
+                                        svm_linear_pred_train), 3)
+
+
+svm_linear_pred_test <- predict(svm_cv_linear, newdata = numeric_test_dat,
+                                type = 'prob')[,2]
+svm_linear_test_pred <- mean((svm_linear_pred_test > 0.5) == 
+                               numeric_test_dat$ses_outcome)
+
+svm_linear_test_auc <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                                       svm_linear_pred_test), 3)
+
+
+# SVM Radial
 set.seed(305777468)
-extract_boosting_model_and_runing_time <- function(mfinal_input) {
-  
-  start_time <- proc.time()
-  model_obj <- boosting(letter ~ ., data = train_data_trees,
-                        control = rpart.control(minbucket = 1, minsplit = 2, cp = 0),
-                        mfinal = mfinal_input)
-  end_time <- proc.time() - start_time
-  
-  
-  orc_boost_pred_test <- predict(model_obj, newdata = test_data_trees)$error
-  orc_boost_pred_train <- predict(model_obj, newdata = train_data_trees)$error
-  
-  rm(model_obj)
-  
-  
-  list(test_error = orc_boost_pred_test,
-       train_error = orc_boost_pred_train,
-       running_time = end_time[3])
-  
-  
-}
-# TODO - comment out in the code preview
-# boosting_models <- map(num_use_tree, ~extract_boosting_model_and_runing_time(.x)) 
+svm_cv_radial <- train(ses_outcome ~., 
+                       data = numeric_train_dat %>% 
+                         mutate(ses_outcome = as.factor(ses_outcome)), 
+                       method = "svmRadial", 
+                       trControl = train_control, 
+                       tuneLength = 10,
+                       preProcess = c("center","scale"), 
+                       prob.model = TRUE)
 
-boosting_table <- map_df(boosting_models, ~as_tibble(.x)) %>% 
-  mutate("Number of Trees" = num_use_tree) 
+svm_radial_pred_train <- predict(svm_cv_radial, newdata = numeric_train_dat,
+                                 type = 'prob')[,2]
+svm_radial_train_pred <- mean((svm_radial_pred_train > 0.5) == 
+                                numeric_train_dat$ses_outcome)
+
+
+svm_radial_pred_test <- predict(svm_cv_radial, newdata = numeric_test_dat,
+                                type = 'prob')[,2]
+svm_radial_test_pred <- mean((svm_radial_pred_test > 0.5) ==
+                               numeric_test_dat$ses_outcome)
 
 
 
+auc_radial_train <- round(as.numeric(pROC::auc(numeric_train_dat$ses_outcome,
+                                         svm_radial_pred_train)), 3)
+
+auc_radial_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                             svm_radial_pred_test), 3)
 
 
 
-train_dat_t <- train_dat %>% 
-  mutate(ses_outcome = as.numeric(ses_outcome)) %>% 
-  select_if(
-    is.numeric
-  ) %>% 
-  mutate(ses_outcome = as.factor(ses_outcome))
+# Neural Network -----------------------------------------------------------
+set.seed(305777468)
+train_neuralnetwork <- caret::train(as.factor(ses_outcome) ~., 
+                                    data = numeric_train_dat %>% 
+                                      mutate(ses_outcome = as.factor(ses_outcome)), 
+                                    method = "nnet",
+                                    tuneGrid = expand.grid(size = c(10),
+                                                           decay = c(0.1)),
+                                    trControl = trainControl(method = "LGOCV",
+                                                             number = 2, p = 0.6),
+                                    trace = TRUE
+)
+
+nn_pred_train <- predict(train_neuralnetwork, newdata = numeric_train_dat, type = 'prob')[,2]
+nn_train_pred <- mean((nn_pred_train > 0.5) ==
+                        numeric_train_dat$ses_outcome)
+auc_nn_train <- round(pROC::auc(numeric_train_dat$ses_outcome,
+                                nn_pred_train), 3)
 
 
 
-model_obj <- adabag::boosting(ses_outcome ~ .,
-                      data = train_dat_t,
-                      control = rpart.control(minbucket = 1, minsplit = 5),
-                      mfinal = 1)
+nn_pred_test <- predict(train_neuralnetwork,
+                        newdata = numeric_test_dat, type = 'prob')[,2]
+nn_test_pred <- mean((nn_pred_test > 0.5) ==
+                               numeric_test_dat$ses_outcome)
+auc_nn_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                               nn_pred_test), 3)
 
-
+# Summary models performance ----------------------------------------------
+library(glue)
+tibble("Model" = c("Logistic Regression",
+                   "Decision Tree",
+                   "Random Forest",
+                   "Radial SVM",
+                   "Linear SVM",
+                   "Neural Network"),
+       "Train Accuracy (AUC)" = c(
+                            glue("{round(glm_train_accuracy*100, 3)}% (glm_train_auc)"),
+                            glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
+                            glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
+                            glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
+                            glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
+                            glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
+                            ),
+       "Test Accuracy (AUC)" = c(
+         glue("{round(glm_test_accuracy*100, 3)}% (glm_test_auc)"),
+         glue("{round(stree_accuracy_test*100, 3)}% ({stree_test_auc})"),
+         glue("{round(rf_accuracy_test*100, 3)}% ({RF_test_auc})"),
+         glue("{round(svm_radial_test_pred*100, 3)}% ({auc_radial_test})"),
+         glue("{round(svm_linear_test_pred*100, 3)}% ({svm_linear_test_auc})"),
+         glue("{round(nn_test_pred*100, 3)}% ({auc_nn_test})")
+                           )
+) 
 
