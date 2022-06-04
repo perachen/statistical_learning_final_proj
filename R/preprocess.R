@@ -209,42 +209,6 @@ train_dat <- training(split_data) %>%
   na.omit()
 
 
-# PCA ---------------------------------------------------------------------
-library(cowplot)
-pca_fit <- train_dat %>% 
-  select_if(is.numeric) %>% 
-  prcomp(scale = TRUE, center = TRUE) 
-
-arrow_style <- arrow(
-  angle = 20, ends = "first", type = "closed", length = grid::unit(8, "pt")
-)
-
-
-pca_fit %>%
-  augment(train_dat %>% 
-            select_if(is.numeric)) %>% # add original dataset back in
-  ggplot(aes(.fittedPC1, .fittedPC2)) + 
-  geom_point(size = 1.5) +
-  scale_color_manual(
-    values = c(malignant = "#D55E00", benign = "#0072B2")
-  ) +
-  theme_half_open(12) + background_grid()
-
-
-pca_fit %>%
-  tidy(matrix = "rotation") %>%
-  pivot_wider(names_from = "PC", names_prefix = "PC", values_from = "value") %>%
-  ggplot(aes(PC1, PC2)) +
-  geom_segment(xend = 0, yend = 0, arrow = arrow_style) +
-  geom_text(
-    aes(label = column),
-    hjust = 1, nudge_x = -0.02, 
-    color = "#904C2F"
-  ) +
-  xlim(-1.25, .5) + ylim(-.5, 1) +
-  coord_fixed() + # fix aspect ratio to 1:1
-  theme_minimal_grid(12)
-
 
 
 
@@ -560,7 +524,57 @@ tibble("Model" = c("Logistic Regression",
   flextable()
 
 
+
+
+# K-means on the outcome variable -----------------------------------------
+
+fviz_nbclust(y_scaled %>% select(-SerialNumber), 
+             kmeans, 
+             method = "wss", print.summary = TRUE)
+# "wss" = total within sum of square
+
+
+k_clust <- k_clust$data
+max_cluster<-as.numeric(k_clust$clusters[which.max(k_clust$y)])
+
+
+# K-means clustering
+clust_kmeans <- kmeans(y_scaled %>% select(-SerialNumber), 3)$cluster %>%
+  as.factor()
+
+plotly::ggplotly(
+  prin$scores[,1:2] %>%
+    as.data.frame() %>%
+    mutate(clust_kmeans = clust_kmeans) %>%
+    ggplot(aes(x = Comp.1, y = Comp.2,
+               color = clust_kmeans, )) +
+    geom_point()
+)
+
+
+prop.table(table(clust_kmeans, y_scaled %>% 
+        left_join(x %>% 
+                    select(SerialNumber, service)) %>% 
+        pull(service)), margin = 1)
+clust_kmeans
+x$service
+
+gtsummary::tbl_summary(
+  data = y %>% 
+    left_join(
+      x #%>% select(SerialNumber, Ethnicity, Minn, service)
+    ) %>% 
+    select(-SerialNumber) %>% 
+    mutate(clust_kmeans),
+  by = clust_kmeans
+) %>% 
+  gtsummary::add_p() %>% 
+  gtsummary::bold_p()
+
 # PCA on the outcome variable ---------------------------------------------
+
+
+
 
 y_scaled <- y %>% 
   mutate_at(.vars = vars(-SerialNumber),
@@ -576,14 +590,15 @@ pr <- y_scaled %>%
 
 
 library(ggfortify)
-
+clust_kmeans
 plotly::ggplotly(
   autoplot(pr,
            data = y  %>% 
              left_join(x,
                        by = "SerialNumber") %>% 
-             select(-SerialNumber),
-           colour = "service",
+             select(-SerialNumber) %>% 
+             mutate(clust_kmeans = clust_kmeans),
+           colour = "clust_kmeans",
            frame = TRUE, 
            frame.type = 'norm',
            loadings.label = TRUE,
@@ -592,7 +607,8 @@ plotly::ggplotly(
     theme_classic()
 )
 
-#
+
+
 
 # Understanding the 'Service' relationship with social mobility -----------
 

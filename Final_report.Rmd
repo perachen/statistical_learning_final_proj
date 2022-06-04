@@ -11,15 +11,27 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Abstract
 
+One character of a functioning society is not just the total wealth, but the social mobility in the society: The movement of individuals, families, households, or other categories of people within or between social strata in a society. A lack of social mobility might cause false consciousness of what is called a "Glass Ceiling" - a so called invisible barrier that prevents a given demographic from rising beyond a certain level in a hierarchy. Invisible or visible barriers might cause different subgroups of the population feel frustrated and may prevent them from making a progress or working hard for their future and for their families future.
+
+In order to suggest a possible solution I analyzed the data from a 2018 survey by the Central Bureau of Statistics. First I built different prediction models in order to see if I can predict high socioeconomic status in the future (age 45- 54) based on the past (age 30). Afterwards I tried to find special groups based only on socioeconomic variables on the present. Last I tried to explore the distributions of the socioeconomic scores among different subgroups in order to add some inference and possible insights to my analysis. 
+
+I found out that I can predict pretty well future socioeconomic status based on variables from the past, and that the most powerful predictor was having a military / national service. Using unsupervised learning I found 3 main subgroups based on the socioeconomic variables: Those who have high socioeconomic status in all aspects, those who tend to have no formal high education and a low income but claim to be satisfied with their lives and those  who are not satisfied with their lives but economically and in terms of education are somwhere between the other two clusters.
+
+
+
 # Introduction
 
-This project deals with the issue of social mobility in Israel. Social mobility is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in our country that includes a big variety of cultures, I believe that is easier to isolate variables that might indicate a possible improvement of social status.
+What is high socieconomic status?
 
-I find this issue very interesting because I can understand what it is needed from someone in order to improve and change his social status. In this project I would like to find answers to the questions:
+What is social mobility?
 
--   Can we predict future social status by the background of the participant and his parents.
--   Trying to characterize similar groups by features of social mobility.
--   Can we identify variables that influence social mobility.
+This project deals with the issue of social mobility in Israel. Social mobility is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in Israel that includes a big variety of cultures, I believe that it is easier to isolate variables that might indicate a possible improvement of socioeconomic status.
+
+I find this issue very interesting because I can understand what is needed from someone in order to improve and change his social status. In this project I would like to find answers to the following questions:
+
+-   Can we predict future social status by the background of the participant and his parents?
+-   Can we characterize similar groups by features of socioeconomic status?
+-   Can we identify variables that influence social mobility?
 
 # Data Description
 
@@ -41,25 +53,19 @@ I took all of the mentioned variables, scaled them and calculated the mean for e
 
 Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
 
--   filtering the data - Filtering all ppl in age 45-54 *********
+-   filtering the data - Filtering all ppl in age 45-54 \*\*\*\*\*\*\*\*\*
 
 # Methods
 
 # Limitations
 
-I didn't had the data from the past ***
-
+I didn't had the data from the past \*\*\*
 
 # Results, discussion and conclusion
 
+I found that completing a military or national service is a great predictor for being in a high socioeconomic status in the future.
 
-I found that completing a military or national service is a great predictor for being
-in a high socioeconomic status in the future.
-
-I assume that a possible reason is that taking a part in a military or a national service might
-make individuals feel as being an integral part of the society. Military or national service might 
-make people having relationships more easily because of common experience or more satisfied by feeling
-like "giving their part" to society. 
+I assume that a possible reason is that taking a part in a military or a national service might make individuals feel as being an integral part of the society. Military or national service might make people having relationships more easily because of common experience or more satisfied by feeling like "giving their part" to society.
 
 I suspect that this variable might be dominant because of the correlation with Jewish ethnicity, but it seems that there is a big difference in socieconomic status even among Jews who did and did not participate in a military or national service.
 
@@ -67,5 +73,5 @@ If my assumptions are correct, I think that the best way to deal with social mob
 
 # References
 
-
 [Questionnaire and more details on the survey in The Central Bureau of Statistics website](https://www.cbs.gov.il/he/publications/Pages/2020/%D7%94%D7%A1%D7%A7%D7%A8-%D7%94%D7%97%D7%91%D7%A8%D7%AA%D7%99-2018.aspx)
+
