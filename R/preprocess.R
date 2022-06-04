@@ -92,7 +92,6 @@ x <- sc %>%
          GilMegurimAtzmaim,
          GilYeledRishon, 
          DatiutYehudiBen15,
-         TeudaGvoha,
          Dat,
          TeudaGvohaAv_C, # תעודה גבוהה - אב
          TeudaGvohaEm_C, # תעודה גבוהה - אם
@@ -119,15 +118,16 @@ x <- sc %>%
     Minn = case_when(Minn == 1 ~ "Male",
                      Minn == 2 ~ "Female"),
     GilNisuinRishon = case_when(GilNisuinRishon %in% c(7:10, 888888) ~ 7,
-                                is.na(GilNisuinRishon) ~ 7,
-                                T ~ GilNisuinRishon), # לא התחתנו עד גיל 30
+                                is.na(GilNisuinRishon) ~ 7, # No marriage until age 30
+                                T ~ GilNisuinRishon), 
     GilMegurimAtzmaim = ifelse(GilMegurimAtzmaim == 0 |
                                  GilMegurimAtzmaim == 888888,
-                               yes = 8, no = GilMegurimAtzmaim),
-    # לא הביאו ילדים עד גיל 30
+                               yes = 8, # didn't left home until 30
+                               no = GilMegurimAtzmaim),
     GilYeledRishon = ifelse(GilYeledRishon %in% c(8:10) |
                               is.na(GilYeledRishon) |
-                              GilYeledRishon == 888888, yes = 7,
+                              GilYeledRishon == 888888,
+                            yes = 7, # No children until age 30
                             no = GilYeledRishon
     ),
     Ethnicity = case_when(
@@ -137,12 +137,9 @@ x <- sc %>%
       Dat == 1 & DatiutYehudiBen15 == 4 ~ "Jew, Masorti not very Religious",
       Dat == 1 & DatiutYehudiBen15 == 5 ~ "Jew, Secular",
       Dat == 2 ~ "Musilm",
-      !(Dat %in% c(1,2)) ~ "Else"
+      !(Dat %in% c(1,2)) ~ "Else" # Christians, Druze, other religions, atheists.
     ),
     Ethnicity = relevel(factor(Ethnicity), "Jew, Secular"),
-    TeudaGvoha = case_when(TeudaGvoha == 6 ~ 5,
-                           TeudaGvoha == 7 ~ 0,
-                           T ~ TeudaGvoha),
     TeudaGvohaAv_C = ifelse(TeudaGvohaAv_C %in% c(7, 888888), yes = 0, 
                             no = TeudaGvohaAv_C),
     TeudaGvohaEm_C = ifelse(TeudaGvohaEm_C %in% c(7, 888888), yes = 0,
@@ -171,8 +168,7 @@ x <- sc %>%
             SemelEretzAv_C, SemelEretzEm_C,
             Dat, DatiutYehudiBen15,
             SherutTzahal, SherutLeumi,
-            MaamadAvodaEm_C, MaamadAvodaAv_C,
-            TeudaGvoha))
+            MaamadAvodaEm_C, MaamadAvodaAv_C))
 
 
 

@@ -1,7 +1,7 @@
 ---
-title: "Final report."
+title: "Social Mobility - Final Report"
 author: "Perach Hen Elkayam"
-date: '2022-05-27'
+date: '2022-06-07'
 output: pdf_document
 ---
 
@@ -11,19 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Abstract
 
-One character of a functioning society is not just the total wealth, but the social mobility in the society: The movement of individuals, families, households, or other categories of people within or between social strata in a society. A lack of social mobility might cause false consciousness of what is called a "Glass Ceiling" - a so called invisible barrier that prevents a given demographic from rising beyond a certain level in a hierarchy. Invisible or visible barriers might cause different subgroups of the population feel frustrated and may prevent them from making a progress or working hard for their future and for their families future.
+One character of a functioning society is not just the total wealth, but the social mobility in the society. A lack of social mobility might cause false consciousness of what is called a "Glass Ceiling" - a so called invisible barrier that prevents a given demographic from rising beyond a certain level in a hierarchy. Invisible or visible barriers might cause different subgroups of the population feel frustrated and may prevent them from making a progress or working hard for their future and for their families future.
 
 In order to suggest a possible solution I analyzed the data from a 2018 survey by the Central Bureau of Statistics. First I built different prediction models in order to see if I can predict high socioeconomic status in the future (age 45- 54) based on the past (age 30). Afterwards I tried to find special groups based only on socioeconomic variables on the present. Last I tried to explore the distributions of the socioeconomic scores among different subgroups in order to add some inference and possible insights to my analysis. 
 
-I found out that I can predict pretty well future socioeconomic status based on variables from the past, and that the most powerful predictor was having a military / national service. Using unsupervised learning I found 3 main subgroups based on the socioeconomic variables: Those who have high socioeconomic status in all aspects, those who tend to have no formal high education and a low income but claim to be satisfied with their lives and those  who are not satisfied with their lives but economically and in terms of education are somwhere between the other two clusters.
+I found out that I can predict pretty well future socioeconomic status based on variables from the past, and that the most powerful predictor was having a military / national service. Using unsupervised learning I found 3 main subgroups based on the socioeconomic variables: Those who have high socioeconomic status in all aspects, those who tend to have no formal high education and a low income but claim to be satisfied with their lives and those  who are not satisfied with their lives but economically and in terms of education are somewhere between the other two clusters.
 
 
 
 # Introduction
-
-What is high socieconomic status?
-
-What is social mobility?
 
 This project deals with the issue of social mobility in Israel. Social mobility is the movement of individuals, families, households, or other categories of people within or between social strata in a society. It is a change in social status relative to one's current social location within a given society. Because of the structure of the population in Israel that includes a big variety of cultures, I believe that it is easier to isolate variables that might indicate a possible improvement of socioeconomic status.
 
@@ -33,7 +29,83 @@ I find this issue very interesting because I can understand what is needed from 
 -   Can we characterize similar groups by features of socioeconomic status?
 -   Can we identify variables that influence social mobility?
 
+During the whole project I used a socioeconomic score that I created by myself as described in the following section.
+
+
+
+
+
+
+
 # Data Description
+
+Through the analysis in order to isolate age as a possible confounder I decided to focus on a specific age group: 45 - 54.
+This age group contains adults that probably made most of their big decisions and progress in their life.
+Given a reasonable amount of useful data i stayed with 1098 observations.
+
+X--------------y
+(vars)         (vars)
+(past)
+(age 30) ----   (present age 45-54)
+
+
+## Prediction Model:
+
+### Creating the Predictors (X):
+
+I chose 17 questions from the 409 available in the data that I assumed to be known at the age of 30.
+I couldn't use most of the questions asked in the survey since the answers contained information about the future and therefore cannot be used as predictors.
+For easier interpretation and modelling I preprocessed the original questions and created 11 new variables:
+
+
+* `Minn` (Gender): Male or Female
+
+
+* `birth_plcae` (Birth Place) - participant and parents birth place: USSR, Israel (parents: Mixed), Israel (parents: Israel), Israel (parents: Europe / America), Israel (parents: Asia), Israel (parents: Africa), Europe / America, Asia, Africa.
+
+
+* `GilMegurimAtzmaim` - The age at which the participant moved to independent residence: haven't moved to independent residence, until age 17, 18-19, 20-21, 22-23, 24-25, 26-27, 28-29.
+
+
+* `GilNisuinRishon` - First age of marriage: younger then 20, 20-21, 22-23, 24-25, 26-27, 28-29 and participants who didn't got married until age 30 .
+
+
+* `GilYeledRishon` - Age at which the first child was born: until 19, 20-21, 22-23, 24-25, 26-27, 28-29, No children.
+
+
+* `Ethnicity`: Jew-Secular, Jew-Masorti not very Religious, Jew-Masorti, Jew-Religious, Jew-Haredi, Musilm and Else group: Christians, Druze, other religions and atheists (collected into one group "Else" because they all had small number of participants).
+
+
+* `TeudaGvohaEm_C` - Mother education: no education or non of the mentioned certificates, high school (without Bagrut certificate),
+high school (with Bagrut certificate), Post-secondary school (not academic certificate), BA, MA, Ph.D.
+
+
+* `TeudaGvohaAv_C` - Father education (same options as mother education) 
+
+
+* `service` - Military or national service: yes or no.
+
+
+* `mother_work_at_age_15` - The participant's mother employee status when the participant was 15 years old: Didn't work, Employee, Business owner, Else, Passed away.
+
+
+* `father_work_at_age_15` - The participant's father employee status when the participant was 15 years old: (the same as mother).
+
+
+
+### Creating the Socioeconomic score (Y):
+
+
+
+
+
+
+
+
+-   filtering the data - Filtering all ppl in age 45-54 \*\*\*\*\*\*\*\*\*
+
+
+What is high socioeconomic status in my therms?
 
 ### Building Score for socioeconomic status
 
@@ -41,7 +113,7 @@ There are many ways to measure and define socioeconomic status. I built a score 
 
 The following variables were chosen by me, each one had an equal weight:
 
--   
+- 
 
 -   
 
@@ -53,7 +125,6 @@ I took all of the mentioned variables, scaled them and calculated the mean for e
 
 Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
 
--   filtering the data - Filtering all ppl in age 45-54 \*\*\*\*\*\*\*\*\*
 
 # Methods
 
