@@ -592,7 +592,51 @@ plotly::ggplotly(
     theme_classic()
 )
 
+#
 
+# Understanding the 'Service' relationship with social mobility -----------
+
+# This time we will try to understand how Military \ National Service is 
+# related to people from a difficult background
+
+names(x)
+
+# Self Reported
+
+x %>% 
+  left_join(
+    sc %>% select(SerialNumber , ShinuyRamatHaim)
+  ) %>% 
+  select(-SerialNumber) %>% 
+  mutate(
+      ShinuyRamatHaim = 
+        case_when(
+          ShinuyRamatHaim == 1 ~ "Better",
+          ShinuyRamatHaim == 2 ~ "Worse",
+          ShinuyRamatHaim == 3 ~ "Unchanged"
+        )
+    ) %>% 
+  select(service, ShinuyRamatHaim, Ethnicity) %>% 
+  filter(Ethnicity %in%
+           c("Jew, Religious",
+             "Jew, Haredi",
+             "Jew, Masorti",
+             "Jew, Masorti not very Religious"
+             )) %>%
+  select(-Ethnicity) %>% 
+  gtsummary::tbl_summary(
+    by = service
+  ) 
+
+
+# Self Reported
+
+
+
+
+
+
+unique(x$mother_work_at_age_15)
 
 # Exploring the data ------------------------------------------------------
 ## Big and meaningful conclusion!
@@ -615,36 +659,6 @@ service_by_ethnicity <- y %>%
   theme(plot.caption = element_text(hjust = 0, size = 11))
 
 
-y %>% 
-  mutate(
-    ses_outcome = rowMeans(
-      select(., ends_with("_y")) #%>% 
-    )) %>% 
-  left_join(x,
-            by = "SerialNumber") %>% 
-  select(ses_outcome, service, Minn) %>% 
-  ggplot(
-    aes(x = ses_outcome, fill = service)
-  ) +
-  geom_density(alpha = 0.5) +
-  facet_wrap(~Minn) 
-
-
-y %>% 
-  mutate(
-    ses_outcome = rowMeans(
-      select(., ends_with("_y")) #%>% 
-    )) %>% 
-  left_join(x,
-            by = "SerialNumber") %>% 
-  select(ses_outcome, service, father_work_at_age_15, 
-         mother_work_at_age_15) %>% 
-  ggplot(
-    aes(x = ses_outcome, fill = service)
-  ) +
-  geom_density(alpha = 0.5) +
-  # facet_wrap( ~  father_work_at_age_15)  
-  facet_wrap( ~  father_work_at_age_15)  
 
 
 

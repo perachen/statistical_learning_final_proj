@@ -41,11 +41,29 @@ I took all of the mentioned variables, scaled them and calculated the mean for e
 
 Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
 
--   filtering the data - Filtering all ppl in age 45-54
+-   filtering the data - Filtering all ppl in age 45-54 *********
 
 # Methods
 
+# Limitations
+
+I didn't had the data from the past ***
+
+
 # Results, discussion and conclusion
+
+
+I found that completing a military or national service is a great predictor for being
+in a high socioeconomic status in the future.
+
+I assume that a possible reason is that taking a part in a military or a national service might
+make individuals feel as being an integral part of the society. Military or national service might 
+make people having relationships more easily because of common experience or more satisfied by feeling
+like "giving their part" to society. 
+
+I suspect that this variable might be dominant because of the correlation with Jewish ethnicity, but it seems that there is a big difference in socieconomic status even among Jews who did and did not participate in a military or national service.
+
+If my assumptions are correct, I think that the best way to deal with social mobility is to help all populations feel as part of the society by finding the right platforms.
 
 # References
 
