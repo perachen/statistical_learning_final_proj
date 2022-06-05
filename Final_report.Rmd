@@ -39,6 +39,8 @@ During the whole project I used a socioeconomic score that I created by myself a
 
 # Data Description
 
+The data set was collected by the Central Bureau of Statistics.
+
 Through the analysis in order to isolate age as a possible confounder I decided to focus on a specific age group: 45 - 54.
 This age group contains adults that probably made most of their big decisions and progress in their life.
 Given a reasonable amount of useful data i stayed with 1098 observations.
@@ -92,39 +94,46 @@ high school (with Bagrut certificate), Post-secondary school (not academic certi
 * `father_work_at_age_15` - The participant's father employee status when the participant was 15 years old: (the same as mother).
 
 
-
 ### Creating the Socioeconomic score (Y):
 
+There are many ways to measure and define socioeconomic status. I built a score for the socioeconomic status that is a combination of education, life quality, employment and economic status by using the variables that were available in the data:
 
+- `TzfifutDiyurM` - How crowded is the living place: low (less than one in one room), middle or High (2+ in one room).
 
+- `Mechonitbaalut_C` - How many cars does the participant have: 0, 1, 2, 3, 4, 5+.
 
+- `MerutzeEzor` - How much does the participant is satisfied with his living area? 1-4.
 
+- `MatzavBriut` - How much does the participant values is health condition generally? 1-4.
 
+- `MatzavBriut` - How much does the participant values is health condition generally? 1-4.
 
+- `TeudaGvoha` - Participant's education: The same levels as mentioned in the Mother Education variable.
 
--   filtering the data - Filtering all ppl in age 45-54 \*\*\*\*\*\*\*\*\*
+- `PehamimShimushInt` - Frequency of internet use per week: Not at all, less than once a week, once or twice a week, everyday or almost everyday.
 
+- `MerutzeKesherMishp` - How much are you satisfied with your family relationship? 1-5.
 
-What is high socioeconomic status in my therms?
+- `MerutzeKesherMishp` - How much are you satisfied with your family relationship? 1-5.
 
-### Building Score for socioeconomic status
+- `TadirutChaverim` - Frequency of interacting with friends: Not at all, less than once in a month, once or twice in a month, once or twice in a week, everyday or almost every day.
 
-There are many ways to measure and define socioeconomic status. I built a score for the socioeconomic status that is a combination of education, life quality, employment and economic status.
+- `MerutzeChaim` - How much are you satisfied with your life? 1-4.
 
-The following variables were chosen by me, each one had an equal weight:
+- `MerutzeKalkali` - How much are you satisfied with your economic status? 1-4.
 
-- 
+- `HachnasaAvodaNeto` - Last week what was your income (Neto) from all of your workplaces? 0-2000, 2001-3000, 3001-4000, 4001-5000, 5001-6000, 6001-7500, 7501-10000, 10001-14000, 14001, 21000, above 21000.
 
--   
+- `Mispar_dirot` - How many apartments do you own? 0, 1, 2+.
 
--   
+I took all of the mentioned variables, scaled them and calculated the mean for each individual in the data set. 
+Some of the variables indicate high socieconomic status in the opposite direction, for example: If your living place is less crowded your socioeconomic status is higher. In order to have consistency I multiplied these variables by -1 (the raw values are not important because of the scaling process).
 
--   
+In order to use the new variable for the prediction models it was easier for me to make it binary and produce probabilities for being in a high socioeconomic status. Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
 
-I took all of the mentioned variables, scaled them and calculated the mean for each individual in the data set. In order to use the new variable for the prediction models it was easier for me to make it binary and produce probabilities for being in a high socioeconomic status.
+I divided the data to training (821 observations) and test set (277 observations) randomly.
 
-Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
-
+For more exploration I also used the `ShinuyRamatHaim` variable (Worse, Unchanged, Better or unknown) which stands for whether the participant's life got better in the last 10 years.
 
 # Methods
 
