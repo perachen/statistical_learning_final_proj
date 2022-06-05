@@ -80,7 +80,7 @@ y <- sc %>%
   rename_at(.vars = vars(-SerialNumber), ~paste0(.x, "_y"))
 
 
-# Preprocessing predictors --
+# Preprocessing predictors ---
 x <- sc %>%
   select(SerialNumber,
          YelidBrham,
@@ -171,11 +171,10 @@ x <- sc %>%
             MaamadAvodaEm_C, MaamadAvodaAv_C))
 
 
-
-
 ## ==Splitting the data==
 set.seed(305777468)
 split_data <- initial_split(x, prop = 3/4)
+
 # Test
 test_dat <- testing(split_data) %>% 
   left_join(y, by = "SerialNumber") %>% 
@@ -188,8 +187,6 @@ test_dat <- testing(split_data) %>%
   mutate(ses_outcome = ses_outcome > 0) %>% 
   select(-ends_with("_y"), -SerialNumber) %>% 
   na.omit() 
-
-
 
 # Train
 train_dat <- training(split_data) %>% 
@@ -204,26 +201,23 @@ train_dat <- training(split_data) %>%
   select(-ends_with("_y"), -SerialNumber) %>% 
   na.omit()
 
-
-
-
-
-# corr on train -----------------------------------------------------------------
+# corr on train -----------------------------------------------------------
 cor_dat <- train_dat %>% 
   select_if(is.numeric) %>% 
   cor()
-corrplot(cor_dat,
-         method = 'number',
-         type = "upper", diag = FALSE)
+corr_plot <- corrplot(cor_dat, 
+                      method = 'number',
+                      type = "upper", diag = FALSE)
 
-# glm ---------------------------------------------------------------------
-
-gtsummary::tbl_summary(
+# Exploring the data ------------------------------------------------------
+exploring_the_data_tbl <- gtsummary::tbl_summary(
   data = train_dat,
   by = ses_outcome) %>% 
   gtsummary::add_p() %>% 
   gtsummary::bold_p()
 
+# glm ---------------------------------------------------------------------
+set.seed(305777468)
 glm_fit <- glm(ses_outcome ~ .,
                data = train_dat,
                family = binomial(logit))
@@ -236,12 +230,11 @@ glm_train_auc <- round(pROC::auc(train_dat$ses_outcome,
 
 y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
 glm_test_accuracy <- mean((y_pred_test > 0.5) == test_dat$ses_outcome)
-
 glm_test_auc <- round(pROC::auc(test_dat$ses_outcome,
                                 y_pred_test), 3)
 
-
-gtsummary::tbl_regression(glm_fit) %>% 
+# summary table of glm model
+glm_summary_tbl <- gtsummary::tbl_regression(glm_fit) %>% 
   gtsummary::bold_p()
 
 
@@ -254,8 +247,41 @@ library(rattle)
 
 tree <- rpart(ses_outcome ~ .,
               data = train_dat,
+              control = rpart.control(minbucket=1, minsplit=2, cp=0),
               method = "class")
-prp(tree)
+printcp(tree)
+
+
+simplt_tree_plot <- prp(tree)
+
+min_xerror=min(tree$cptable[,"xerror"])     # minimal xerror
+min_xerror
+
+ind=which.min(tree$cptable[,"xerror"])
+std=tree$cptable[ind, "xstd"]
+s=which(tree$cptable[, "xerror"] >= min_xerror+std)
+ind1=max(s[s<=ind])                            
+ind1    
+
+pruned_tree <- prune(tree, cp=cp0)
+printcp(pruned_tree)
+
+prp(pruned_tree)
+
+
+train_probs_pruned <- predict(pruned_tree, newdata = train_dat, type = "prob")[,2]
+stree_accuracy_train_pruned <- mean((train_probs_pruned > 0.5) == train_dat$ses_outcome)
+
+
+test_probs_pruned <- predict(pruned_tree, newdata = test_dat, type = "prob")[,2]
+stree_accuracy_test_prun <- mean((test_probs_pruned > 0.5) == test_dat$ses_outcome)
+
+
+
+
+
+
+
 
 train_probs <- predict(tree, newdata = train_dat, type = "prob")[,2]
 stree_accuracy_train <- mean((train_probs > 0.5) == train_dat$ses_outcome)
@@ -265,29 +291,31 @@ stree_train_auc <- round(pROC::auc(train_dat$ses_outcome,
 
 test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
 stree_accuracy_test <- mean((test_probs > 0.5) == test_dat$ses_outcome)
-
 stree_test_auc <- round(pROC::auc(test_dat$ses_outcome,
                                   test_probs), 3)
 
-# importance plot
-tree$variable.importance %>% 
-  data.frame() %>%
-  rownames_to_column(var = "Feature") %>%
-  rename(Overall = '.') %>%
-  ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
-  geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
-  theme_minimal() +
-  coord_flip() +
-  labs(x = "", y = "", title = "Variable Importance with Simple Classication")
+
+
+
+
+# importance simple tree plot TODO: choose if to plot the tree of importace or the tree by free place
+# tree$variable.importance %>% 
+#   data.frame() %>%
+#   rownames_to_column(var = "Feature") %>%
+#   rename(Overall = '.') %>%
+#   ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+#   geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+#   theme_minimal() +
+#   coord_flip() +
+#   labs(x = "", y = "", title = "Variable Importance with Simple Classication")
 
 # Random Forest -----------------------------------------------------------
-
 library(randomForest)
 library(mlbench)
 library(caret)
 library(e1071)
 
-### Cross validation for random forest parameters
+# Cross validation for Random Forest parameters
 customRF <- list(type = "Classification",
                  library = "randomForest",
                  loop = NULL)
@@ -338,10 +366,6 @@ rf_model <- train(factor(ses_outcome) ~ .,
                   trControl = control)
 
 
-# Choosing the best parameters
-rf_model$results %>%  
-  arrange(desc(Accuracy))
-
 rf_train <- predict(rf_model, train_dat, type = "prob")[,2]
 rf_accuracy_train <- mean((rf_train > 0.5) == train_dat$ses_outcome)
 RF_train_auc <- round(pROC::auc(train_dat$ses_outcome,
@@ -354,7 +378,7 @@ RF_test_auc <- round(pROC::auc(test_dat$ses_outcome,
                                rf_test), 3)
 
 # importance plot
-rf_model$finalModel$importance %>% 
+rf_ipmortance_plot <- rf_model$finalModel$importance %>% 
   data.frame() %>%
   rownames_to_column(var = "Feature") %>%
   ggplot(aes(x = fct_reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
@@ -365,7 +389,7 @@ rf_model$finalModel$importance %>%
 
 
 # SVM -------------------------------------------------------------------------
-# preprocess 
+# preprocess for SVM
 recp_dat <- recipe(ses_outcome ~ ., data = train_dat) %>% 
   step_dummy(c("birth_plcae",
                "Ethnicity",
@@ -387,7 +411,7 @@ numeric_test_dat <- recipes::prep(recp_dat) %>%
   mutate_at(vars(-ses_outcome), ~scale(., center = TRUE, scale = TRUE)) 
 
 
-# SVM Linear
+# SVM Linear ---
 library(caret)
 set.seed(305777468)
 control <- trainControl(method = "repeatedcv", 
@@ -423,7 +447,7 @@ svm_linear_test_auc <- round(pROC::auc(numeric_test_dat$ses_outcome,
                                        svm_linear_pred_test), 3)
 
 
-# SVM Radial
+# SVM Radial ---
 set.seed(305777468)
 svm_cv_radial <- train(ses_outcome ~., 
                        data = numeric_train_dat %>% 
@@ -452,8 +476,6 @@ auc_radial_train <- round(as.numeric(pROC::auc(numeric_train_dat$ses_outcome,
 
 auc_radial_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
                                    svm_radial_pred_test), 3)
-
-
 
 # Neural Network -----------------------------------------------------------
 set.seed(305777468)
@@ -485,37 +507,30 @@ nn_test_pred <- mean((nn_pred_test > 0.5) ==
 auc_nn_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
                                nn_pred_test), 3)
 
-
-# By Service
-
-mean(train_dat$service == train_dat$ses_outcome)
-mean(test_dat$service == test_dat$ses_outcome)
-
-
 # Summary models performance ----------------------------------------------
 library(glue)
-tibble("Model" = c("Logistic Regression",
-                   "Decision Tree",
-                   "Random Forest",
-                   "Radial SVM",
-                   "Linear SVM",
-                   "Neural Network"),
-       "Train Accuracy (AUC)" = c(
-         glue("{round(glm_train_accuracy*100, 3)}% ({glm_train_auc})"),
-         glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
-         glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
-         glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
-         glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
-         glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
-       ),
-       "Test Accuracy (AUC)" = c(
-         glue("{round(glm_test_accuracy*100, 3)}% ({glm_test_auc})"),
-         glue("{round(stree_accuracy_test*100, 3)}% ({stree_test_auc})"),
-         glue("{round(rf_accuracy_test*100, 3)}% ({RF_test_auc})"),
-         glue("{round(svm_radial_test_pred*100, 3)}% ({auc_radial_test})"),
-         glue("{round(svm_linear_test_pred*100, 3)}% ({svm_linear_test_auc})"),
-         glue("{round(nn_test_pred*100, 3)}% ({auc_nn_test})")
-       )
+final_performance_table <- tibble("Model" = c("Logistic Regression",
+                                              "Decision Tree",
+                                              "Random Forest",
+                                              "Radial SVM",
+                                              "Linear SVM",
+                                              "Neural Network"),
+                                  "Train Accuracy (AUC)" = c(
+                                    glue("{round(glm_train_accuracy*100, 3)}% ({glm_train_auc})"),
+                                    glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
+                                    glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
+                                    glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
+                                    glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
+                                    glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
+                                  ),
+                                  "Test Accuracy (AUC)" = c(
+                                    glue("{round(glm_test_accuracy*100, 3)}% ({glm_test_auc})"),
+                                    glue("{round(stree_accuracy_test*100, 3)}% ({stree_test_auc})"),
+                                    glue("{round(rf_accuracy_test*100, 3)}% ({RF_test_auc})"),
+                                    glue("{round(svm_radial_test_pred*100, 3)}% ({auc_radial_test})"),
+                                    glue("{round(svm_linear_test_pred*100, 3)}% ({svm_linear_test_auc})"),
+                                    glue("{round(nn_test_pred*100, 3)}% ({auc_nn_test})")
+                                  )
 ) %>% 
   flextable()
 
@@ -523,11 +538,10 @@ tibble("Model" = c("Logistic Regression",
 
 
 # K-means on the outcome variable -----------------------------------------
-
 fviz_nbclust(y_scaled %>% select(-SerialNumber), 
              kmeans, 
-             method = "wss", print.summary = TRUE)
-# "wss" = total within sum of square
+             method = "wss", # "wss" = total within sum of square. TODO: Extract relevant formula for report
+             print.summary = TRUE)
 
 
 k_clust <- k_clust$data
@@ -538,24 +552,15 @@ max_cluster<-as.numeric(k_clust$clusters[which.max(k_clust$y)])
 clust_kmeans <- kmeans(y_scaled %>% select(-SerialNumber), 3)$cluster %>%
   as.factor()
 
-plotly::ggplotly(
-  prin$scores[,1:2] %>%
-    as.data.frame() %>%
-    mutate(clust_kmeans = clust_kmeans) %>%
-    ggplot(aes(x = Comp.1, y = Comp.2,
-               color = clust_kmeans, )) +
-    geom_point()
-)
+# TODO: Delete me after use
+# prop.table(table(clust_kmeans, y_scaled %>% 
+#         left_join(x %>% 
+#                     select(SerialNumber, service)) %>% 
+#         pull(service)), margin = 1)
 
 
-prop.table(table(clust_kmeans, y_scaled %>% 
-        left_join(x %>% 
-                    select(SerialNumber, service)) %>% 
-        pull(service)), margin = 1)
-clust_kmeans
-x$service
-
-gtsummary::tbl_summary(
+# comparing between the clusters by different variables
+compare_kmeans_clusters_tbl <- gtsummary::tbl_summary(
   data = y %>% 
     left_join(
       x #%>% select(SerialNumber, Ethnicity, Minn, service)
@@ -568,10 +573,6 @@ gtsummary::tbl_summary(
   gtsummary::bold_p()
 
 # PCA on the outcome variable ---------------------------------------------
-
-
-
-
 y_scaled <- y %>% 
   mutate_at(.vars = vars(-SerialNumber),
             ~scale(., center = TRUE, scale = TRUE))
@@ -580,83 +581,60 @@ y_scaled <- y %>%
 pr <- y_scaled %>% 
   select(-SerialNumber) %>%   
   prcomp()
-# prin <- y_scaled %>% 
-#   select(-SerialNumber) %>% 
-#   princomp()
 
 
 library(ggfortify)
-clust_kmeans
-plotly::ggplotly(
-  autoplot(pr,
-           data = y  %>% 
-             left_join(x,
-                       by = "SerialNumber") %>% 
-             select(-SerialNumber) %>% 
-             mutate(clust_kmeans = clust_kmeans),
-           colour = "clust_kmeans",
-           frame = TRUE, 
-           frame.type = 'norm',
-           loadings.label = TRUE,
-           loadings = TRUE
-  ) +
-    theme_classic()
-)
-
-
-
+pca_kmeans <- autoplot(pr,
+                       data = y  %>% 
+                         left_join(x,
+                                   by = "SerialNumber") %>% 
+                         select(-SerialNumber) %>% 
+                         mutate(clust_kmeans = clust_kmeans),
+                       colour = "clust_kmeans",
+                       frame = TRUE, 
+                       frame.type = 'norm',
+                       loadings.label = TRUE,
+                       loadings = TRUE
+) +
+  theme_classic()
 
 # Understanding the 'Service' relationship with social mobility -----------
 
 # This time we will try to understand how Military \ National Service is 
 # related to people from a difficult background
 
-names(x)
-
-# Self Reported
-
-x %>% 
+service_shinuyramathaim <- x %>% 
   left_join(
-    sc %>% select(SerialNumber , ShinuyRamatHaim)
+    sc %>% select(SerialNumber , ShinuyRamatHaim) # ShinuyRamatHaim Self Reported
   ) %>% 
   select(-SerialNumber) %>% 
   mutate(
-      ShinuyRamatHaim = 
-        case_when(
-          ShinuyRamatHaim == 1 ~ "Better",
-          ShinuyRamatHaim == 2 ~ "Worse",
-          ShinuyRamatHaim == 3 ~ "Unchanged"
-        )
-    ) %>% 
+    ShinuyRamatHaim = 
+      case_when(
+        ShinuyRamatHaim == 1 ~ "Better",
+        ShinuyRamatHaim == 2 ~ "Worse",
+        ShinuyRamatHaim == 3 ~ "Unchanged"
+      )
+  ) %>% 
   select(service, ShinuyRamatHaim, Ethnicity) %>% 
   filter(Ethnicity %in%
            c("Jew, Religious",
-             "Jew, Haredi",
+             # "Jew, Haredi",
              "Jew, Masorti",
              "Jew, Masorti not very Religious"
-             )) %>%
+           )) %>%
   select(-Ethnicity) %>% 
   gtsummary::tbl_summary(
     by = service
   ) 
 
-
-# Self Reported
-
-
-
-
-
-
-unique(x$mother_work_at_age_15)
-
 # Exploring the data ------------------------------------------------------
 ## Big and meaningful conclusion!
 service_by_ethnicity <- y %>%
   mutate(
-  ses_outcome = rowMeans(
-    select(., ends_with("_y")) #%>% 
-  )) %>% 
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
   left_join(x,
             by = "SerialNumber") %>% 
   select(ses_outcome, service, Ethnicity) %>% 
@@ -669,8 +647,3 @@ service_by_ethnicity <- y %>%
   scale_fill_manual(values = c("darkorange","cyan4")) +
   labs(caption = "Else:Christians, Druze, other religions, atheists") +
   theme(plot.caption = element_text(hjust = 0, size = 11))
-
-
-
-
-

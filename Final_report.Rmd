@@ -6,8 +6,47 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE,
+                      fig.width=6,
+                      message=FALSE,
+                      warning=FALSE,
+                      fig.height=4,
+                      fig.align="center")
+
+{
+  library(tidymodels)
+  library(corrplot)
+  library(flextable)
+  library(tidyverse)
+  library(factoextra)
+  library(rpart)
+  library(rpart.plot)
+  library(rattle)
+  library(randomForest)
+  library(mlbench)
+  library(caret)
+  library(e1071)
+  library(glue)
+  library(ggfortify)
+  library(gtools)
+
+}
+  
+  
+  select <- dplyr::select
+
+
+theme_set(theme_bw() +
+            theme(panel.background = element_blank(), 
+                  panel.grid.major = element_blank(),
+                  panel.grid.minor = element_blank(),
+                  strip.background = element_rect(fill = "steelblue"),
+                  strip.text = element_text(color = "white", size = 11, face = "bold"),
+                  axis.text = element_text(color = "black"),
+            ))
 ```
+
+
 
 # Abstract
 
@@ -44,12 +83,6 @@ The data set was collected by the Central Bureau of Statistics.
 Through the analysis in order to isolate age as a possible confounder I decided to focus on a specific age group: 45 - 54.
 This age group contains adults that probably made most of their big decisions and progress in their life.
 Given a reasonable amount of useful data i stayed with 1098 observations.
-
-X--------------y
-(vars)         (vars)
-(past)
-(age 30) ----   (present age 45-54)
-
 
 ## Prediction Model:
 
@@ -127,7 +160,7 @@ There are many ways to measure and define socioeconomic status. I built a score 
 - `Mispar_dirot` - How many apartments do you own? 0, 1, 2+.
 
 I took all of the mentioned variables, scaled them and calculated the mean for each individual in the data set. 
-Some of the variables indicate high socieconomic status in the opposite direction, for example: If your living place is less crowded your socioeconomic status is higher. In order to have consistency I multiplied these variables by -1 (the raw values are not important because of the scaling process).
+Some of the variables indicate high socioeconomic status in the opposite direction, for example: If your living place is less crowded your socioeconomic status is higher. In order to have consistency I multiplied these variables by -1 (the raw values are not important because of the scaling process).
 
 In order to use the new variable for the prediction models it was easier for me to make it binary and produce probabilities for being in a high socioeconomic status. Calculated as a continuous value, and standardized: the mean value of the score will be zero, positive value means that the social economic status is above average.
 
@@ -135,23 +168,803 @@ I divided the data to training (821 observations) and test set (277 observations
 
 For more exploration I also used the `ShinuyRamatHaim` variable (Worse, Unchanged, Better or unknown) which stands for whether the participant's life got better in the last 10 years.
 
-# Methods
 
-# Limitations
 
-I didn't had the data from the past \*\*\*
 
-# Results, discussion and conclusion
+```{r include=FALSE}
+
+
+social_mobility <- read_csv("data/Social_mobility-2018-Data.csv")  
+
+# 888888 - Unknown
+# 999999 - NA
+sc <- social_mobility %>% 
+  mutate_all(~na_if(., 999999)) %>%
+  # Filtering all ppl in age 45-54
+  filter(Gil %in% c(6,7)) 
+
+# preprocessing the outcome ----
+y <- sc %>% 
+  select(SerialNumber,
+         # Details about apartment, car and Housekeeping:
+         DiraBaalut_C, 
+         DiraNosefetBaalut, # דירה נוספת בבעלות  
+         TzfifutDiyurM, # מספר אנשים לחדר בדירה
+         Mechonitbaalut_C, # מספר מכוניות בבעלות
+         # Positions on residence
+         MerutzeEzor, # מרוצה מהאיזור בו אתה גר
+         # Health and lifestyle
+         MatzavBriut, # מצב בריאות
+         # Skills: Studies,languages,courses,military service and driver’s license
+         TeudaGvoha, # מהי התעודה או התואר הגבוה ביותר שקיבלת?
+         # Computer and Internet use and access to technology
+         PehamimShimushInt, # בדרך כלל, כמה פעמים בשבוע אתה משתמש באינטרנט?
+         # Employment
+         MatzavTaasukaM_C, # מצב תעסוקה
+         # contact with family and friends
+         MerutzeKesherMishp, # האם את/ה מרוצה מהקשר שלך עם בני משפחתך?
+         YeshChaverim,
+         TadirutChaverim,
+         # Economic status and income and welfare
+         MerutzeChaim, # באופן כללי, האם את/ה מרוצה מחייך?
+         MerutzeKalkali, # האם את/ה מרוצה ממצבך הכלכלי?
+         HachnasaAvodaNeto # בחודש שעבר, מה הייתה הכנסה ברוטו
+  ) %>% 
+  mutate(TadirutChaverim = ifelse(YeshChaverim %in% c(2, 888888), yes = 5,
+                                  no = TadirutChaverim),
+         HachnasaAvodaNeto = case_when(MatzavTaasukaM_C %in% c(2,3) &
+                                         is.na(HachnasaAvodaNeto) ~ 0,
+                                       T ~ HachnasaAvodaNeto),
+         HachnasaAvodaNeto = ifelse(HachnasaAvodaNeto == 11, yes = 0,
+                                    no = HachnasaAvodaNeto),
+         Mispar_dirot = case_when(DiraBaalut_C == 2 ~ 0,
+                                  DiraNosefetBaalut == 2  | 
+                                    DiraNosefetBaalut == 888888 |
+                                    is.na(DiraNosefetBaalut) ~ 1,
+                                  DiraNosefetBaalut == 1 ~ 2
+         ),
+         # הקטגוריה 0 עכשיו תהיה לא למד כלל/לא קיבל אף אחת מהתעודות הרשומות
+         TeudaGvoha = ifelse(TeudaGvoha == 7, yes = 0,
+                             no = TeudaGvoha)
+  ) %>% 
+  filter(!(is.na(HachnasaAvodaNeto) | HachnasaAvodaNeto == 888888)) %>%
+  select(-c(YeshChaverim,
+            DiraNosefetBaalut, DiraBaalut_C,
+            MatzavTaasukaM_C)) %>% 
+  mutate_all(~na_if(., 888888)) %>% 
+  na.omit() %>% 
+  # I want all variables to signify that "more" means "better", 
+  # therefore i multiplied the relevant variables by -1
+  # (the values will be scaled afterwards)
+  mutate_at(.vars = vars(c(TzfifutDiyurM, MatzavBriut,
+                           MerutzeKesherMishp,
+                           MerutzeEzor, PehamimShimushInt,
+                           MerutzeChaim, 
+                           MerutzeKalkali, 
+                           TadirutChaverim)),
+            ~. * (-1)
+            
+  ) %>%  
+  rename_at(.vars = vars(-SerialNumber), ~paste0(.x, "_y"))
+
+
+# Preprocessing predictors ---
+x <- sc %>%
+  select(SerialNumber,
+         YelidBrham,
+         SemelEretz,
+         SemelEretzAv_C,
+         SemelEretzEm_C,
+         Minn,
+         GilNisuinRishon,
+         GilMegurimAtzmaim,
+         GilYeledRishon, 
+         DatiutYehudiBen15,
+         Dat,
+         TeudaGvohaAv_C, # תעודה גבוהה - אב
+         TeudaGvohaEm_C, # תעודה גבוהה - אם
+         SherutTzahal,
+         SherutLeumi,
+         MaamadAvodaAv_C, # כשהיית בן/בת 15 , האם אביך היה:
+         MaamadAvodaEm_C  # כשהיית בן/בת 15 , האם אמך היתה:
+  ) %>% 
+  mutate(birth_plcae = case_when(
+    YelidBrham == 1 ~ "USSR",
+    SemelEretz == 1 & SemelEretzEm_C != SemelEretzAv_C ~
+      "Israel (parents: Mixed)",
+    SemelEretz == 1 & SemelEretzEm_C == 1 & SemelEretzAv_C == 1 ~ 
+      "Israel (parents: Israel)",
+    SemelEretz == 1 & SemelEretzEm_C == 2 & SemelEretzAv_C == 2 ~
+      "Israel (parents: Europe / America)",
+    SemelEretz == 1 & SemelEretzEm_C == 3 & SemelEretzAv_C == 3 ~
+      "Israel (parents: Asia)",
+    SemelEretz == 1 & SemelEretzEm_C == 4 & SemelEretzAv_C == 4 ~
+      "Israel (parents: Africa)",
+    SemelEretz == 2 & YelidBrham == 2 ~ "Europe / America",
+    SemelEretz == 3 ~ "Asia", 
+    SemelEretz == 4 ~ "Africa"),
+    Minn = case_when(Minn == 1 ~ "Male",
+                     Minn == 2 ~ "Female"),
+    GilNisuinRishon = case_when(GilNisuinRishon %in% c(7:10, 888888) ~ 7,
+                                is.na(GilNisuinRishon) ~ 7, # No marriage until age 30
+                                T ~ GilNisuinRishon), 
+    GilMegurimAtzmaim = ifelse(GilMegurimAtzmaim == 0 |
+                                 GilMegurimAtzmaim == 888888,
+                               yes = 8, # didn't left home until 30
+                               no = GilMegurimAtzmaim),
+    GilYeledRishon = ifelse(GilYeledRishon %in% c(8:10) |
+                              is.na(GilYeledRishon) |
+                              GilYeledRishon == 888888,
+                            yes = 7, # No children until age 30
+                            no = GilYeledRishon
+    ),
+    Ethnicity = case_when(
+      Dat == 1 & DatiutYehudiBen15 == 1 ~ "Jew, Haredi",
+      Dat == 1 & DatiutYehudiBen15 == 2 ~ "Jew, Religious",
+      Dat == 1 & DatiutYehudiBen15 == 3 ~ "Jew, Masorti",
+      Dat == 1 & DatiutYehudiBen15 == 4 ~ "Jew, Masorti not very Religious",
+      Dat == 1 & DatiutYehudiBen15 == 5 ~ "Jew, Secular",
+      Dat == 2 ~ "Musilm",
+      !(Dat %in% c(1,2)) ~ "Else" # Christians, Druze, other religions, atheists.
+    ),
+    Ethnicity = relevel(factor(Ethnicity), "Jew, Secular"),
+    TeudaGvohaAv_C = ifelse(TeudaGvohaAv_C %in% c(7, 888888), yes = 0, 
+                            no = TeudaGvohaAv_C),
+    TeudaGvohaEm_C = ifelse(TeudaGvohaEm_C %in% c(7, 888888), yes = 0,
+                            no = TeudaGvohaEm_C),
+    service = case_when((SherutTzahal == 1) | 
+                          (SherutTzahal == 2 & SherutLeumi == 1) ~ TRUE,
+                        T ~ FALSE),
+    father_work_at_age_15 = case_when(is.na(MaamadAvodaAv_C) | 
+                                        MaamadAvodaAv_C == 3 ~ "Else",
+                                      MaamadAvodaAv_C == 0 ~ "Didn't work",
+                                      MaamadAvodaAv_C == 1 ~ "Employee",
+                                      MaamadAvodaAv_C == 2 ~ "Business owner",
+                                      MaamadAvodaAv_C == 4 ~ "Passed away"
+    ),
+    father_work_at_age_15 = relevel(factor(father_work_at_age_15), "Employee"),
+    mother_work_at_age_15 = case_when(is.na(MaamadAvodaEm_C) |
+                                        MaamadAvodaEm_C == 3 ~ "Else",
+                                      MaamadAvodaEm_C == 0 ~ "Didn't work",
+                                      MaamadAvodaEm_C == 1 ~ "Employee",
+                                      MaamadAvodaEm_C == 2 ~ "Business owner",
+                                      MaamadAvodaEm_C == 4 ~ "Passed away"
+    ),
+    mother_work_at_age_15 = relevel(factor(mother_work_at_age_15), "Employee")
+  ) %>% 
+  select(-c(YelidBrham, SemelEretz,
+            SemelEretzAv_C, SemelEretzEm_C,
+            Dat, DatiutYehudiBen15,
+            SherutTzahal, SherutLeumi,
+            MaamadAvodaEm_C, MaamadAvodaAv_C))
+
+
+## ==Splitting the data==
+set.seed(305777468)
+split_data <- initial_split(x, prop = 3/4)
+
+# Test
+test_dat <- testing(split_data) %>% 
+  left_join(y, by = "SerialNumber") %>% 
+  mutate_at(.vars = vars(ends_with("_y")),
+            ~scale(., center = TRUE, scale = TRUE)) %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  mutate(ses_outcome = ses_outcome > 0) %>% 
+  select(-ends_with("_y"), -SerialNumber) %>% 
+  na.omit() 
+
+# Train
+train_dat <- training(split_data) %>% 
+  left_join(y, by = "SerialNumber") %>% 
+  mutate_at(.vars = vars(ends_with("_y")),
+            ~scale(., center = TRUE, scale = TRUE)) %>% 
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  mutate(ses_outcome = ses_outcome > 0) %>% 
+  select(-ends_with("_y"), -SerialNumber) %>% 
+  na.omit()
+
+# corr on train -----------------------------------------------------------
+cor_dat <- train_dat %>% 
+  select_if(is.numeric) %>% 
+  cor()
+corr_plot <- corrplot(cor_dat, 
+                      method = 'number',
+                      type = "upper", diag = FALSE)
+
+# Exploring the data ------------------------------------------------------
+exploring_the_data_tbl <- gtsummary::tbl_summary(
+  data = train_dat,
+  by = ses_outcome) %>% 
+  gtsummary::add_p() %>% 
+  gtsummary::bold_p()
+
+# glm ---------------------------------------------------------------------
+set.seed(305777468)
+glm_fit <- glm(ses_outcome ~ .,
+               data = train_dat,
+               family = binomial(logit))
+
+y_pred_train <- predict(glm_fit, type = "response") 
+glm_train_accuracy <- mean((y_pred_train > 0.5) == train_dat$ses_outcome)
+glm_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                 y_pred_train), 3)
+
+
+y_pred_test <- predict(glm_fit, newdata = test_dat, type = "response")
+glm_test_accuracy <- mean((y_pred_test > 0.5) == test_dat$ses_outcome)
+glm_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                                y_pred_test), 3)
+
+# summary table of glm model
+glm_summary_tbl <- gtsummary::tbl_regression(glm_fit) %>% 
+  gtsummary::bold_p()
+
+
+# Simple Tree model -------------------------------------------------------
+
+# Simple tree
+set.seed(305777468)
+tree <- rpart(ses_outcome ~ .,
+              data = train_dat,
+              method = "class")
+
+
+train_probs <- predict(tree, newdata = train_dat, type = "prob")[,2]
+stree_accuracy_train <- mean((train_probs > 0.5) == train_dat$ses_outcome)
+stree_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                   train_probs), 3)
+
+
+test_probs <- predict(tree, newdata = test_dat, type = "prob")[,2]
+stree_accuracy_test <- mean((test_probs > 0.5) == test_dat$ses_outcome)
+stree_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                                  test_probs), 3)
+
+
+# importance simple tree plot TODO: choose if to plot the tree of importace or the tree by free place
+# tree$variable.importance %>% 
+#   data.frame() %>%
+#   rownames_to_column(var = "Feature") %>%
+#   rename(Overall = '.') %>%
+#   ggplot(aes(x = fct_reorder(Feature, Overall), y = Overall)) +
+#   geom_pointrange(aes(ymin = 0, ymax = Overall), color = "cadetblue", size = .3) +
+#   theme_minimal() +
+#   coord_flip() +
+#   labs(x = "", y = "", title = "Variable Importance with Simple Classication")
+
+
+# Pruning tree
+set.seed(305777468)
+# maximal tree
+max_tree <- rpart(ses_outcome ~ .,
+              data = train_dat,
+              control = rpart.control(minbucket=1, minsplit=2, cp=0),
+              method = "class")
+
+# Pruning
+# calculate the CP and the 1-SE rule
+min_xerror <- min(max_tree$cptable[,"xerror"])
+ind <- which.min(max_tree$cptable[,"xerror"])
+std <- max_tree$cptable[ind, "xstd"]
+s <- which(max_tree$cptable[, "xerror"] >= min_xerror+std)
+ind1 <- max(s[s<=ind])  
+
+
+one_se_rule_tbl <- max_tree$cptable %>%
+  as.data.frame() %>%
+  mutate("xerror <= minimal xerror + xstd" = xerror >= min_xerror + std) %>%
+  add_rowindex() %>% 
+  rename("Row Number" = ".row") %>% 
+  flextable()
+
+# By using the 1-SE rule the extracted tree is:
+## The pruned tree
+cp0 <- max_tree$cptable[ind1,"CP"]
+
+start_time_prune_tree <- proc.time()
+prune_tree <- prune(max_tree, cp=0.0081)
+prp(prune_tree)
+
+
+# Random Forest -----------------------------------------------------------
+
+
+# Cross validation for Random Forest parameters
+customRF <- list(type = "Classification",
+                 library = "randomForest",
+                 loop = NULL)
+
+customRF$parameters <- data.frame(parameter = c("mtry", "ntree", "nodesize"),
+                                  class = rep("numeric", 3),
+                                  label = c("mtry", "ntree", "nodesize"))
+
+
+customRF$grid <- function(x, y, len = NULL, search = "grid") {}
+
+
+customRF$fit <- function(x, y, wts, param, lev, last, weights, classProbs) {
+  randomForest(x, y,
+               mtry = param$mtry,
+               ntree=param$ntree,
+               nodesize = param$nodesize)
+}
+
+#Predict label
+customRF$predict <- function(modelFit, newdata, preProc = NULL, 
+                             submodels = NULL)
+  predict(modelFit, newdata)
+
+#Predict prob
+customRF$prob <- function(modelFit, newdata, preProc = NULL, submodels = NULL)
+  predict(modelFit, newdata, type = "prob")
+
+customRF$sort <- function(x) x[order(x[,1]),]
+customRF$levels <- function(x) x$classes
+
+control <- trainControl(method = "repeatedcv", 
+                        number = 10, 
+                        repeats = 3,
+                        allowParallel = TRUE)
+
+tunegrid <- expand.grid(.mtry=c(1:5),
+                        .ntree=c(5, 10, 15, 20), 
+                        .nodesize = c(20, 40, 60, 80))
+
+### Random forest model
+set.seed(305777468)
+rf_model <- train(factor(ses_outcome) ~ ., 
+                  data = train_dat,
+                  method = customRF, 
+                  metric = 'Accuracy', 
+                  tuneGrid = tunegrid, 
+                  trControl = control)
+
+
+rf_train <- predict(rf_model, train_dat, type = "prob")[,2]
+rf_accuracy_train <- mean((rf_train > 0.5) == train_dat$ses_outcome)
+RF_train_auc <- round(pROC::auc(train_dat$ses_outcome,
+                                rf_train), 3)
+
+
+rf_test <- predict(rf_model, test_dat, type = "prob")[,2]
+rf_accuracy_test <- mean((rf_test > 0.5) == test_dat$ses_outcome)
+RF_test_auc <- round(pROC::auc(test_dat$ses_outcome,
+                               rf_test), 3)
+
+# importance plot
+rf_ipmortance_plot <- rf_model$finalModel$importance %>% 
+  data.frame() %>%
+  rownames_to_column(var = "Feature") %>%
+  ggplot(aes(x = fct_reorder(Feature, MeanDecreaseGini), y = MeanDecreaseGini)) +
+  geom_pointrange(aes(ymin = 0, ymax = MeanDecreaseGini), color = "cadetblue", size = .3) +
+  theme_minimal() +
+  coord_flip() +
+  labs(x = "", y = "", title = "Variable Importance with Random Forest")
+
+
+# SVM -------------------------------------------------------------------------
+# preprocess for SVM
+recp_dat <- recipe(ses_outcome ~ ., data = train_dat) %>% 
+  step_dummy(c("birth_plcae",
+               "Ethnicity",
+               "father_work_at_age_15",
+               "mother_work_at_age_15"
+  ))
+
+numeric_train_dat <- recipes::prep(recp_dat) %>% 
+  recipes::bake(new_data = train_dat) %>% 
+  mutate(service = as.numeric(service),
+         Minn = ifelse(Minn == "Male", 1, 0)) %>%
+  mutate_at(vars(-ses_outcome), ~scale(., center = TRUE, scale = TRUE)) 
+
+
+numeric_test_dat <- recipes::prep(recp_dat) %>% 
+  recipes::bake(new_data = test_dat) %>% 
+  mutate(service = as.numeric(service),
+         Minn = ifelse(Minn == "Male", 1, 0)) %>%
+  mutate_at(vars(-ses_outcome), ~scale(., center = TRUE, scale = TRUE)) 
+
+
+# SVM Linear ---
+set.seed(305777468)
+control <- trainControl(method = "repeatedcv", 
+                        number = 10, 
+                        repeats = 3,
+                        allowParallel = TRUE)
+
+svm_cv_linear <- train(ses_outcome ~., 
+                       data = numeric_train_dat %>% 
+                         mutate(ses_outcome = as.factor(ses_outcome)), 
+                       method = "svmLinear", 
+                       trControl = control, 
+                       tuneGrid = expand.grid(C = seq(0, 2, length = 20)),
+                       preProcess = c("center","scale"), 
+                       prob.model = TRUE)
+
+svm_linear_pred_train <- predict(svm_cv_linear, newdata = numeric_train_dat,
+                                 type = 'prob')[,2]
+
+svm_linear_train_pred <- mean((svm_linear_pred_train > 0.5) == 
+                                numeric_train_dat$ses_outcome)
+
+svm_linear_train_auc <- round(pROC::auc(numeric_train_dat$ses_outcome,
+                                        svm_linear_pred_train), 3)
+
+
+svm_linear_pred_test <- predict(svm_cv_linear, newdata = numeric_test_dat,
+                                type = 'prob')[,2]
+svm_linear_test_pred <- mean((svm_linear_pred_test > 0.5) == 
+                               numeric_test_dat$ses_outcome)
+
+svm_linear_test_auc <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                                       svm_linear_pred_test), 3)
+
+
+# SVM Radial ---
+set.seed(305777468)
+svm_cv_radial <- train(ses_outcome ~., 
+                       data = numeric_train_dat %>% 
+                         mutate(ses_outcome = as.factor(ses_outcome)), 
+                       method = "svmRadial", 
+                       trControl = control, 
+                       tuneLength = 10,
+                       preProcess = c("center","scale"), 
+                       prob.model = TRUE)
+
+svm_radial_pred_train <- predict(svm_cv_radial, newdata = numeric_train_dat,
+                                 type = 'prob')[,2]
+svm_radial_train_pred <- mean((svm_radial_pred_train > 0.5) == 
+                                numeric_train_dat$ses_outcome)
+
+
+svm_radial_pred_test <- predict(svm_cv_radial, newdata = numeric_test_dat,
+                                type = 'prob')[,2]
+svm_radial_test_pred <- mean((svm_radial_pred_test > 0.5) ==
+                               numeric_test_dat$ses_outcome)
+
+
+
+auc_radial_train <- round(as.numeric(pROC::auc(numeric_train_dat$ses_outcome,
+                                               svm_radial_pred_train)), 3)
+
+auc_radial_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                                   svm_radial_pred_test), 3)
+
+# Neural Network -----------------------------------------------------------
+set.seed(305777468)
+train_neuralnetwork <- caret::train(as.factor(ses_outcome) ~., 
+                                    data = numeric_train_dat, 
+                                    method = "nnet",
+                                    tuneGrid = expand.grid(size = c(10, 15, 20,
+                                                                    25),
+                                                           decay = c(0.1, 0.6, 0.7,
+                                                                     0.8)),
+                                    trControl = trainControl(method = "LGOCV",
+                                                             number = 3, p = 0.8),
+                                    trace = TRUE
+)
+
+nn_pred_train <- predict(train_neuralnetwork, newdata = numeric_train_dat,
+                         type = 'prob')[,2]
+nn_train_pred <- mean((nn_pred_train > 0.5) ==
+                        numeric_train_dat$ses_outcome)
+auc_nn_train <- round(pROC::auc(numeric_train_dat$ses_outcome,
+                                nn_pred_train), 3)
+
+
+
+nn_pred_test <- predict(train_neuralnetwork,
+                        newdata = numeric_test_dat, type = 'prob')[,2]
+nn_test_pred <- mean((nn_pred_test > 0.5) ==
+                       numeric_test_dat$ses_outcome)
+auc_nn_test <- round(pROC::auc(numeric_test_dat$ses_outcome,
+                               nn_pred_test), 3)
+
+# Summary models performance ----------------------------------------------
+final_performance_table <- tibble("Model" = c("Logistic Regression",
+                                              "Decision Tree",
+                                              "Random Forest",
+                                              "Radial SVM",
+                                              "Linear SVM",
+                                              "Neural Network"),
+                                  "Train Accuracy (AUC)" = c(
+                                    glue("{round(glm_train_accuracy*100, 3)}% ({glm_train_auc})"),
+                                    glue("{round(stree_accuracy_train*100, 3)}% ({stree_train_auc})"),
+                                    glue("{round(rf_accuracy_train*100, 3)}% ({RF_train_auc})"),
+                                    glue("{round(svm_radial_train_pred*100, 3)}% ({auc_radial_train})"),
+                                    glue("{round(svm_linear_train_pred*100, 3)}% ({svm_linear_train_auc})"),
+                                    glue("{round(nn_train_pred*100, 3)}% ({auc_nn_train})")
+                                  ),
+                                  "Test Accuracy (AUC)" = c(
+                                    glue("{round(glm_test_accuracy*100, 3)}% ({glm_test_auc})"),
+                                    glue("{round(stree_accuracy_test*100, 3)}% ({stree_test_auc})"),
+                                    glue("{round(rf_accuracy_test*100, 3)}% ({RF_test_auc})"),
+                                    glue("{round(svm_radial_test_pred*100, 3)}% ({auc_radial_test})"),
+                                    glue("{round(svm_linear_test_pred*100, 3)}% ({svm_linear_test_auc})"),
+                                    glue("{round(nn_test_pred*100, 3)}% ({auc_nn_test})")
+                                  )
+) %>% 
+  flextable()
+
+
+
+
+# K-means on the outcome variable -----------------------------------------
+
+y_scaled <- y %>% 
+  mutate_at(.vars = vars(-SerialNumber),
+            ~scale(., center = TRUE, scale = TRUE))
+
+fviz_nbclust(y_scaled %>% select(-SerialNumber), 
+             kmeans, 
+             method = "wss", # "wss" = total within sum of square. TODO: Extract relevant formula for report
+             print.summary = TRUE)
+
+
+
+
+# K-means clustering
+clust_kmeans <- kmeans(y_scaled %>% select(-SerialNumber), 3)$cluster %>%
+  as.factor()
+
+# TODO: Delete me after use
+# prop.table(table(clust_kmeans, y_scaled %>% 
+#         left_join(x %>% 
+#                     select(SerialNumber, service)) %>% 
+#         pull(service)), margin = 1)
+
+
+# comparing between the clusters by different variables
+compare_kmeans_clusters_tbl <- gtsummary::tbl_summary(
+  data = y %>% 
+    left_join(
+      x #%>% select(SerialNumber, Ethnicity, Minn, service)
+    ) %>% 
+    select(-SerialNumber) %>% 
+    mutate(clust_kmeans),
+  by = clust_kmeans
+) %>% 
+  gtsummary::add_p() %>% 
+  gtsummary::bold_p()
+
+# PCA on the outcome variable ---------------------------------------------
+
+
+
+pr <- y_scaled %>% 
+  select(-SerialNumber) %>%   
+  prcomp()
+
+
+pca_kmeans <- autoplot(pr,
+                       data = y  %>% 
+                         left_join(x,
+                                   by = "SerialNumber") %>% 
+                         select(-SerialNumber) %>% 
+                         mutate(clust_kmeans = clust_kmeans),
+                       colour = "clust_kmeans",
+                       frame = TRUE, 
+                       frame.type = 'norm',
+                       loadings.label = TRUE,
+                       loadings = TRUE
+) +
+  theme_classic()
+
+# Understanding the 'Service' relationship with social mobility -----------
+
+# This time we will try to understand how Military \ National Service is 
+# related to people from a difficult background
+
+service_shinuyramathaim <- x %>% 
+  left_join(
+    sc %>% select(SerialNumber , ShinuyRamatHaim) # ShinuyRamatHaim Self Reported
+  ) %>% 
+  select(-SerialNumber) %>% 
+  mutate(
+    ShinuyRamatHaim = 
+      case_when(
+        ShinuyRamatHaim == 1 ~ "Better",
+        ShinuyRamatHaim == 2 ~ "Worse",
+        ShinuyRamatHaim == 3 ~ "Unchanged"
+      )
+  ) %>% 
+  select(service, ShinuyRamatHaim, Ethnicity) %>% 
+  filter(Ethnicity %in%
+           c("Jew, Religious",
+             # "Jew, Haredi",
+             "Jew, Masorti",
+             "Jew, Masorti not very Religious"
+           )) %>%
+  select(-Ethnicity) %>% 
+  gtsummary::tbl_summary(
+    by = service
+  ) 
+
+# Exploring the data ------------------------------------------------------
+## Big and meaningful conclusion!
+service_by_ethnicity <- y %>%
+  mutate(
+    ses_outcome = rowMeans(
+      select(., ends_with("_y")) #%>% 
+    )) %>% 
+  left_join(x,
+            by = "SerialNumber") %>% 
+  select(ses_outcome, service, Ethnicity) %>% 
+  ggplot(
+    aes(x = ses_outcome, fill = service)
+  ) +
+  geom_density(alpha = 0.5) +
+  facet_wrap(~Ethnicity) +
+  xlab("Socioeconomic Score (centerd and scaled)") +
+  scale_fill_manual(values = c("darkorange","cyan4")) +
+  labs(caption = "Else:Christians, Druze, other religions, atheists") +
+  theme(plot.caption = element_text(hjust = 0, size = 11))
+
+```
+
+
+
+# Methods and Results
+
+## Prediction Models (Supervised Learning):
+
+I trained different models in order to find which one of them might be the most suitable for prediction of the socioeconomic outcome.
+
+### Logistic Regression
+
+For the Logistic Regression Model I used all of the mentioned variables.
+The following variables were significant in the model (p.v < 0.05):
+
+Father education, The age at which the participant moved to independent residence, Ethnicity levels of Jew-Haredi, Jew-Masorti not very religious and Muslim (Jew secular as a reference level), doing a military / national service, father was a business owner at age 15 and father passed away at age 15 (father was employee at age 15 as a reference level).
+
+From all of the significant variables the most significant one and the only one who had a p.value below 0.001 was weather the participant did a military / national service.
+
+```{r echo=FALSE, fig.width=9}
+
+glm_fit %>% 
+  tidy()%>%
+  mutate(signif = stars.pval(p.value)) %>% 
+  arrange(p.value) %>% 
+  select(term, estimate, p.value, signif) %>% 
+  filter(p.value < 0.05) %>% 
+  mutate_at(vars(estimate, p.value), ~round(., 4)) %>% 
+  flextable() %>% 
+  fontsize(j = 1, size = 9, part = "body") %>% 
+  width(j = 1, width = 3, unit = "in")
+
+```
+
+### Tree Models
+
+#### Simple Decision Tree
+
+I tried to grow the deepest possible tree and prune it afterwards according to the 1-SE rule of thumb: According to that rule the recommended tree had no splits at all and the second best recommended tree was relatively complicated compared to the decision tree I received from the default parameters provided by the rpart.control function from the rpart package:
+
+* `minbucket` setting to 7 which determines the minimum number of observations in any terminal node.
+
+* `minsplit` setting to 20 which determines the minimum number of observations that must exist in a node in order for a split to be attempted.
+
+* Complexity parameter `cp` setting to 0.01.
+
+```{r fig.height=6, fig.width=9}
+prp(tree, digits=2, varlen=-5, faclen=10, roundint=TRUE, cex = 0.8, fallen.leaves = TRUE)
+```
+
+As can be seen in the tree diagram the first split is wether the participant did a military / national service. Just like the logistic regression model it seems that this variable is a really good predictor.
+
+#### Random Forest
+
+I ran Random Forest in a hope that it might perform better than the logistic regression model and the simple tree model. In order to choose the optimal tuning parameters I ran 10-fold cross validation over several combinations.
+
+Even though Random Forest is not as interpretable as the previous models I can still explore feature importance:
+
+```{r fig.height=4, fig.width=7}
+
+rf_ipmortance_plot +
+  labs(title = "Variable Importance - Random Forest") +
+  theme(title = element_text(size = 10),
+        axis.text.y =  element_text(size = 7)
+        ) 
+
+```
+
+Once again the same variable seem to be much more important than all the others - military / national service.
+
+### Other Machine Learning Models
+
+I also ran other less interpretable models that might improve performance: SVM (Linear and Radial Kernel) and Neural Network. I used once again 10-fold cross validation for parameter tuning.
+
+## Performance
+
+```{r}
+final_performance_table
+```
+
+In terms of performance it seems that the logistic regression and the Linear SVM models did the best job in terms of AUC and accuracy (probability threshold set to 0.5).
+
+The simple decision tree wasn't as good as the other models but it is much more interpretable. 
+
+Neural Network overfits the data and is not a good choice for a relatively small data set (both in terms of observations and features).
+
+If I had to choose one model I would choose Logistic Regression, it is almost the most interpretable model and it provides the best performance on the test set.
+
+## Special groups based only on socioeconomic variables (Unsupervised Learning)
+
+### PCA
+
+I wanted to explore interesting groups by unsupervised learning methods. I ran PCA over the original socioeconomic variables (before creating the socioeconomic score) in order to find some interesting insights. These are the Loadings for the First 2 Principal Components:
+
+```{r}
+# pr$rotation %>% 
+#   as.data.frame() %>% 
+#   tibble::rownames_to_column("Variable") %>% 
+#   select(Variable, PC1, PC2) %>% 
+#   mutate_at(vars(PC1, PC2), ~round(., 3)) %>% 
+#   pivot_longer(-Variable) %>% 
+#   pivot_wider(names_from = Variable, values_from = value) %>%
+#   rename(" " = name) %>% 
+#   flextable()
+```
+
+As we can see the first Principal Component directions are all positives, which means that it is a combination of the original variables (similar to my socioeconomic score). In general the highest the First Principal Component value is the highest the socioeconomic status. The second Principal Component includes different directions, which might imply that the variables have different common characters: The most influential variables towards the positive direction are the frequency of internet use and how crowded the living place is, towards the negative direction how much the participant is satisfied with his life in general and with his economic status. 
+
+### K-means
+
+```{r fig.height=5, fig.width=10}
+pca_kmeans + theme(legend.position = "top")
+```
+
+I wanted to find different clusters among the observations. In order to choose the optimal number of clusters I visualized the within cluster sums of squares and by following the "Elbow Method" I chose the number 3. In the following plot we can see the Principal Components for every observation and the different clusters.
+
+By simple exploration it seems that the different subgroups can be characterized as:
+
+*Cluster 1 (red)* - High technological orientation (96% use the internet on daily basis), low satisfaction from their lives and from their economic status, tend to have values somewhere between the other two clusters.
+
+*Cluster 2 (green)* - Mostly conservative population (65% Jew Haredi or Muslims), low technological orientation (90% don't use the internet), more satisfied with their lives compared to Cluster 1.
+
+*Cluster 3 (blue)* - High Socioeconomic status in every observable aspect.
+
+```{r eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+# I got all these conclusions by using this table:
+compare_kmeans_clusters_tbl <- gtsummary::tbl_summary(
+  data = y %>% 
+    left_join(
+      x #%>% select(SerialNumber, Ethnicity, Minn, service)
+    ) %>% 
+    select(-SerialNumber) %>% 
+    select(Ethnicity, TeudaGvoha_y, PehamimShimushInt_y, service, MerutzeChaim_y, MerutzeKalkali_y) %>% 
+    mutate(clust_kmeans),
+  by = clust_kmeans
+) 
+```
+
+
+## Exploring subgroups (Possible Inference)
+
+In order to provide a possible inference I wanted to make sure that the military / national service has a value in terms of social mobility. I suspected that it might not be the case, and that the only reason for the service to be useful as a predictor is its correlation with ethnicity.
+
+In order to asses the effect I visualized the histogram of the socioeconomic outcome (before turning it to binary) for different ethnic groups and for those who did and didn't do a national / military service.
+
+```{r fig.height=4, fig.width=8}
+service_by_ethnicity
+```
+
+It looks like that the effect of the service is consistent in all ethnic groups (there weren't any Muslims who did a military service). 
+
+# Discussion and Conclusion
 
 I found that completing a military or national service is a great predictor for being in a high socioeconomic status in the future.
 
 I assume that a possible reason is that taking a part in a military or a national service might make individuals feel as being an integral part of the society. Military or national service might make people having relationships more easily because of common experience or more satisfied by feeling like "giving their part" to society.
 
-I suspect that this variable might be dominant because of the correlation with Jewish ethnicity, but it seems that there is a big difference in socieconomic status even among Jews who did and did not participate in a military or national service.
-
-If my assumptions are correct, I think that the best way to deal with social mobility is to help all populations feel as part of the society by finding the right platforms.
+If my assumptions are correct, I think that the best way to deal with social mobility is to help all populations feel as part of the society by finding the right platforms. Yet, it is important that there are very different sub populations as I found in the cluster analysis - and perhaps different subgroups should be treated in different ways.
 
 # References
 
-[Questionnaire and more details on the survey in The Central Bureau of Statistics website](https://www.cbs.gov.il/he/publications/Pages/2020/%D7%94%D7%A1%D7%A7%D7%A8-%D7%94%D7%97%D7%91%D7%A8%D7%AA%D7%99-2018.aspx)
-
+[Questionnaire and more details about the survey in The Central Bureau of Statistics website](https://www.cbs.gov.il/he/publications/Pages/2020/%D7%94%D7%A1%D7%A7%D7%A8-%D7%94%D7%97%D7%91%D7%A8%D7%AA%D7%99-2018.aspx)
