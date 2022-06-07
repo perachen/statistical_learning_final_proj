@@ -899,7 +899,7 @@ I tried to grow the deepest possible tree and prune it afterwards according to t
 
 * Complexity parameter `cp` setting to 0.01.
 
-```{r fig.height=5, fig.width=9}
+```{r fig.height=4, fig.width=9}
 prp(tree, digits=2, varlen=-100, faclen=30, roundint=TRUE, cex = 0.8, fallen.leaves = TRUE)
 ```
 
@@ -907,7 +907,7 @@ As can be seen in the tree diagram the first split is whether the participant di
 
 #### Random Forest
 
-I ran Random Forest in a hope that it might perform better than the logistic regression model and the simple tree model. In order to choose the optimal tuning parameters I ran 10-fold cross validation over several combinations.
+I ran Random Forest in a hope that it might perform better than the logistic regression model and the simple tree model. In order to choose the optimal tuning parameters I ran 10-fold cross validation over several combinations. The final values used for the model were `mtry` = 3, `ntree` = 15 and `nodesize` = 80.
 
 Even though Random Forest is not as interpretable as the previous models I can still explore variable importance:
 
